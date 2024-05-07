@@ -74,6 +74,13 @@ namespace _92CloudWallpaper
                 Visible = true,
                 Text = "92云壁纸"
             };
+            trayIcon.MouseClick += TrayIcon_MouseClick;
+        }
+        //左键单击托盘图标即可换图
+        private void TrayIcon_MouseClick(object sender, MouseEventArgs e)
+        {
+            //MessageBox.Show("托盘图标被双击了!");
+            _ = DownloadAndSetWallpaper();
         }
         private Icon LoadIconFromResource(string resourceName)
         {
