@@ -4,14 +4,11 @@ using System.Windows.Forms;
 using System.Net;
 using System.IO;
 using System.Reflection;
-using Microsoft.Win32;
-using System.Runtime.InteropServices;
-using Newtonsoft.Json;
-using static _92CloudWallpaper.ApiRequestHandler;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
-using System.Security.Policy;
-
+using System.Text.Json;
+using Microsoft.Win32;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace _92CloudWallpaper
 {
@@ -19,30 +16,34 @@ namespace _92CloudWallpaper
     {
         private NotifyIcon trayIcon;
         private Timer timer;
-        //private string imageUrl = "https://source.unsplash.com/user/erondu/1600x900"; // 替换为你的图片URL
+        private string imageUrl = "https://source.unsplash.com/random/1920x1080"; // 替换为你的图片URL
         private int screenWidth = Screen.PrimaryScreen.Bounds.Width;
         private int screenHeight = Screen.PrimaryScreen.Bounds.Height;
-        private string appImageUrl = "http://cnapi.levect.com/v1/photoFrame/imageList";
+        private string appImageUrl = "https://cnapi.levect.com/v1/photoFrame/imageList";
         private ToolStripMenuItem loginMenuItem;
+        private ToolStripMenuItem autoStartMenuItem;
+        private List<string> paths = new List<string>();
+        private List<string> pathsTemp = new List<string>();
+        private List<string> syncWallpaperURLs = new List<string>();
+        private int pathsCount = 0;
+        private int cacheIndex = 0;
+        private const int CacheExpirationDays = 7;
 
         public Form1()
         {
             InitializeComponent();
             InitializeTrayIcon();
-            InitializeTimer(3600000);
-            //MenuTimer();
-            _ = DownloadAndSetWallpaper();
+            InitializeTimer(5000);
+            _ = InitializeAndSetWallpaperAsync();  // 初始化时进行缓存并设置壁纸
         }
+
         private void InitializeTrayIcon()
         {
-
-            // 创建托盘菜单项和子菜单
             ContextMenuStrip trayMenu = new ContextMenuStrip();
             ToolStripMenuItem changeWallpaperMenu = new ToolStripMenuItem("更换壁纸");
-            
-            // 更换壁纸时间选项
-            string[] intervals = { "暂停", "10 秒","1 分钟", "1 小时", "1 天", "立即更换" };
-            int[] times = { 0, 10000, 60000, 3600000, 86400000 };
+
+            string[] intervals = { "暂停", "5 秒", "1 分钟", "1 小时", "1 天", "立即更换" };
+            int[] times = { 0, 5000, 60000, 3600000, 86400000 };
 
             for (int i = 0; i < intervals.Length; i++)
             {
@@ -51,7 +52,8 @@ namespace _92CloudWallpaper
                 if (i == 3) menuItem.Checked = true;  // 默认选中每小时
                 changeWallpaperMenu.DropDownItems.Add(menuItem);
             }
-            if(Properties.Settings.Default.UserId == 0)
+
+            if (Properties.Settings.Default.UserId == 0)
             {
                 loginMenuItem = new ToolStripMenuItem("登录", null, Login);
             }
@@ -60,13 +62,17 @@ namespace _92CloudWallpaper
                 loginMenuItem = new ToolStripMenuItem("登出", null, Logout);
             }
             trayMenu.Items.Add(loginMenuItem);
+
+            autoStartMenuItem = new ToolStripMenuItem("开机启动", null, ToggleAutoStart);
+            autoStartMenuItem.CheckOnClick = true;
+            autoStartMenuItem.Checked = IsApplicationAutoStarting();
+
+            trayMenu.Items.Add(autoStartMenuItem);
             trayMenu.Items.Add(changeWallpaperMenu);
             trayMenu.Items.Add("退出程序", null, (sender, e) => Application.Exit());
 
-            // 加载图标资源
             Icon trayIconImage = LoadIconFromResource("_92CloudWallpaper.7418_logo32.png");
 
-            // 设置托盘图标
             trayIcon = new NotifyIcon()
             {
                 Icon = trayIconImage,
@@ -76,15 +82,17 @@ namespace _92CloudWallpaper
             };
             trayIcon.MouseClick += TrayIcon_MouseClick;
         }
-        //左键单击托盘图标即可换图
+
         private void TrayIcon_MouseClick(object sender, MouseEventArgs e)
         {
-            //MessageBox.Show("托盘图标被双击了!");
-            _ = DownloadAndSetWallpaper();
+            if (e.Button == MouseButtons.Left)
+            {
+                _ = SetWallpaperAsync();
+            }
         }
+
         private Icon LoadIconFromResource(string resourceName)
         {
-            // 访问嵌入资源
             var assembly = Assembly.GetExecutingAssembly();
             using (Stream resourceStream = assembly.GetManifestResourceStream(resourceName))
             {
@@ -93,17 +101,16 @@ namespace _92CloudWallpaper
                     MessageBox.Show("Error loading icon resource.");
                     return null;
                 }
-                // 读取图片并创建图标
                 Image image = Image.FromStream(resourceStream);
                 Bitmap bitmap = new Bitmap(image);
                 return Icon.FromHandle(bitmap.GetHicon());
             }
         }
+
         private void ChangeWallpaperEvent(object sender, EventArgs e)
         {
             var clickedItem = sender as ToolStripMenuItem;
 
-            // Manage check states
             foreach (ToolStripMenuItem item in clickedItem.GetCurrentParent().Items)
             {
                 item.Checked = item == clickedItem;
@@ -111,7 +118,7 @@ namespace _92CloudWallpaper
 
             if (clickedItem.Text == "立即更换")
             {
-                _ = DownloadAndSetWallpaper();
+                _ = SetWallpaperAsync();
                 return;
             }
 
@@ -120,8 +127,7 @@ namespace _92CloudWallpaper
             {
                 timer.Interval = interval;
                 timer.Start();
-                //DownloadAndSetWallpaper(imageUrl);
-                _ = DownloadAndSetWallpaper();
+                _ = SetWallpaperAsync();
             }
             else
             {
@@ -135,122 +141,325 @@ namespace _92CloudWallpaper
             {
                 Interval = interval
             };
-            timer.Tick += (sender, e) => DownloadAndSetWallpaper();
+            timer.Tick += async (sender, e) => await SetWallpaperAsync();
             timer.Start();
         }
-        
-        private void Logout(object sender, EventArgs e)
+
+        private async void Logout(object sender, EventArgs e)
         {
-            // 执行登出前的确认
             if (MessageBox.Show("您确定要登出吗？", "确认登出", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
-                AttemptLogout(); // 调用登出方法
-
-                // 更新菜单项为“登录”
+                await AttemptLogoutAsync();
                 loginMenuItem.Text = "登录";
                 loginMenuItem.Click -= Logout;
                 loginMenuItem.Click += Login;
-
-                
-
-                // 显示登出成功的信息
-                //MessageBox.Show("您已成功登出。", "登出成功", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
-        private void AttemptLogout()
+        private async Task AttemptLogoutAsync()
         {
-            // 添加登出逻辑
-            // 例如清除用户会话、删除安全令牌、清理用户相关的临时数据等
             Properties.Settings.Default.UserId = 0;
             Properties.Settings.Default.Save();
+            
+            ClearCache();
             GlobalData.UserId = 0;
             GlobalData.LoginFlag = 0;
+            cacheIndex = 0;  // 重置cacheIndex
+            await InitializeAndSetWallpaperAsync();
         }
+
         private void Login(object sender, EventArgs e)
         {
             ShowLoginForm();
         }
-        private void LoginSuccess()
+
+        private async void LoginSuccess()
         {
             loginMenuItem.Text = "登出";
             loginMenuItem.Click -= Login;
             loginMenuItem.Click += Logout;
-            _ = DownloadAndSetWallpaper();
-
+            ClearCache();
+            cacheIndex = 0;  // 重置cacheIndex
+            await InitializeAndSetWallpaperAsync();
         }
+
         private void ShowLoginForm()
         {
             using (LoginForm loginForm = new LoginForm())
             {
                 if (loginForm.ShowDialog() == DialogResult.OK)
                 {
-                    // 更新主窗口的菜单项等
-                    //MessageBox.Show("Logged in successfully.");
+                    //GlobalData.UserId = loginForm.UserId; // 假设在登录表单中设置了UserId
                     LoginSuccess();
                 }
             }
         }
-        
-        
-        private async Task DownloadAndSetWallpaper()
-        {
-            string localPath = Path.Combine(Path.GetTempPath(), "currentWallpaper.jpg");
 
+        private async Task DownloadAsync()
+        {
+            int pageIndex = GlobalData.PageIndex;
+            int pageSize = 4;
             var apiHandler = new ApiRequestHandler();
-            var body = new
+
+            var body = new SortedDictionary<string, object>
             {
-                height = screenHeight,
-                pageIndex = GlobalData.PageIndex,
-                pageSize = 1,
-                userId = GlobalData.UserId,
-                //userId = 23,
-                width = screenWidth,
+                { "userId" , GlobalData.UserId },
+                { "height" , screenHeight },
+                { "pageIndex", pageIndex },
+                { "pageSize" , pageSize },
+                { "width" , screenWidth },
             };
-            //lx userid 11581088,23
-            var response = await apiHandler.SendApiRequestAsync(appImageUrl, body);
+
+            var response = await apiHandler.SendApiRequestAsync(appImageUrl, body).ConfigureAwait(false);
             Console.WriteLine(response);
-            JObject json = JObject.Parse(response);
-            string url;
-            try
+            List<string> urlList = new List<string>();
+            using (JsonDocument doc = JsonDocument.Parse(response))
             {
-                 url = (string)json["body"]["list"][0]["url"];
-            }
-            catch (Exception)
-            {
-                url = "";
-            }
-            Console.WriteLine(url);
-            if ( url != "")
-            {
-                GlobalData.PageIndex++;
-                Console.WriteLine(GlobalData.PageIndex);
-                using (WebClient client = new WebClient())
+                JsonElement root = doc.RootElement;
+                JsonElement bodyElement = root.GetProperty("body");
+                JsonElement listElement = bodyElement.GetProperty("list");
+
+                foreach (JsonElement l in listElement.EnumerateArray())
                 {
-                    try
+                    String url = l.GetProperty("url").GetString();
+                    urlList.Add(url);
+                    syncWallpaperURLs.Add(url);
+                }
+            }
+            //Console.WriteLine($"urlList1111 {syncWallpaperURLs.Count}");
+            string cacheDir = GetCacheDir();
+            if (urlList.Count == 0)
+            {
+                //Console.WriteLine($"urlList222 {urlList.Count}");
+                
+
+                // 确保缓存目录存在
+                if (!Directory.Exists(cacheDir))
+                {
+                    Directory.CreateDirectory(cacheDir);
+                }
+
+                // 删除接口中没有返回的图片，并保留一周内的图片
+                var cachedFiles = Directory.GetFiles(cacheDir);
+                /*
+                                var expiredFiles = cachedFiles
+                                    .Where(f => (DateTime.Now - File.GetCreationTime(f)).TotalDays > CacheExpirationDays)
+                                    .ToList();
+                */
+                foreach (var cachedFile in cachedFiles) { 
+                    Console.WriteLine(cachedFile);
+                }
+                List<string> newPaths = new List<string>();
+                //Console.WriteLine($"urlList222 {syncWallpaperURLs.Count}");
+                foreach (var syncWallpaperURL in syncWallpaperURLs){
+                    //Console.WriteLine(syncWallpaperURL);
+                    newPaths.Add(Path.Combine(cacheDir, Path.GetFileName(syncWallpaperURL)));
+                }
+                var filesToDelete = cachedFiles
+                    .Except(newPaths.ToArray())
+                    //.Concat(expiredFiles)
+                    .ToList();
+
+                foreach (var file in filesToDelete)
+                {
+                    //Console.WriteLine(file);
+                    if (File.Exists(file))
                     {
-                        client.DownloadFile(url, localPath);
-                        SetWallpaper(localPath);
-                       // await SetLockScreen.SetImageAsync(localPath);
-                        //return true;
+                        File.Delete(file);
+                    }
+                }
+
+
+                paths = newPaths;
+                syncWallpaperURLs.Clear();
+                pathsTemp.Clear();
+                GlobalData.PageIndex = 1;
+                //_ = SetWallpaperAsync();
+                //return;
+            }
+            else{ 
+
+                using (var downloader = new Downloader())
+                {
+                    await downloader.DownloadFilesAsync(urlList, filePaths =>
+                    {
+                        foreach (var path in downloader.GetFilePaths())
+                        {
+                            if (!pathsTemp.Contains(path))
+                            {
+                                pathsTemp.Add(path);
+                            }
+                        }
+    /*                    if (downloader.GetFilePaths().Count == pageSize)
+                        {
+                            GlobalData.PageIndex++;
+                        }
+                        else
+                        {
+                            GlobalData.PageIndex = 1;
+                        }*/
+                    });
+                }
+                CacheImages(pathsTemp);
+                GlobalData.PageIndex++;
+            }
+            
+        }
+
+        private void CacheImages(List<string> paths)
+        {
+            string cacheDir = GetCacheDir();
+            if (!Directory.Exists(cacheDir))
+            {
+                Directory.CreateDirectory(cacheDir);
+            }
+            foreach (string path in paths)
+            {
+                string fileName = Path.GetFileName(path);
+                string destFile = Path.Combine(cacheDir, fileName);
+                if (!File.Exists(destFile))
+                {
+                    try {
+                        File.Copy(path, destFile);
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show($"An error occurred: {ex.Message}");
-                        //return false;
+                        Console.Write(ex.Message);
+                    }
+                    
+                }
+            }
+        }
+
+        private string GetCacheDir()
+        {
+            string userId = GlobalData.UserId.ToString();
+            return Path.Combine(Path.GetTempPath(), "CloudWallpaper", userId);
+        }
+
+        private void ClearCache()
+        {
+            string cacheDir = GetCacheDir();
+            if (Directory.Exists(cacheDir))
+            {
+                var files = Directory.GetFiles(cacheDir);
+                foreach (var file in files)
+                {
+                    File.Delete(file);
+                }
+            }
+            string cacheTmpDir = Path.Combine(Path.GetTempPath(), "CloudWallpaper", "Temp");
+            if (Directory.Exists(cacheTmpDir))
+            {
+                var files = Directory.GetFiles(cacheTmpDir);
+                foreach (var file in files)
+                {
+                    File.Delete(file);
+                }
+            }
+        }
+
+        private async Task InitializeAndSetWallpaperAsync()
+        {
+            await DownloadAsync();
+            await SetWallpaperAsync();
+        }
+
+        private async Task SetWallpaperAsync()
+        {
+            LoadCachedImages();
+            Console.WriteLine($" paths.Count:{paths.Count} ||| cacheIndex: {cacheIndex}");
+            if (paths != null && paths.Count > 0)
+            {
+                if (cacheIndex >= paths.Count)
+                {
+                    cacheIndex = 0;
+                }
+
+                string localPath = paths[cacheIndex];
+                if (File.Exists(localPath))
+                {
+                    long fileSize = new FileInfo(localPath).Length;
+                    if (fileSize > 0)
+                    {
+                        SetWallpaper(localPath);
+                        cacheIndex++;
+                        if (cacheIndex >= paths.Count)
+                        {
+                            cacheIndex = 0;
+                            await DownloadAsync();
+                        }
                     }
                 }
             }
             else
             {
-                GlobalData.PageIndex = 1;
-                _ = DownloadAndSetWallpaper();
+                await DownloadAsync();
             }
-
-            
-            
         }
-        
+
+        private void LoadCachedImages()
+        {
+            string cacheDir = GetCacheDir();
+            if (Directory.Exists(cacheDir))
+            {
+                var cachedFiles = Directory.GetFiles(cacheDir).OrderBy(f => File.GetCreationTime(f)).ToList();
+                foreach (var file in cachedFiles)
+                {
+                    if (!paths.Contains(file))
+                    {
+                        paths.Add(file);
+                    }
+                }
+            }
+        }
+
+        private async Task DownloadAndSetWallpaper()
+        {
+            string localPath = Path.Combine(Path.GetTempPath(), "currentWallpaper.jpg");
+            var apiHandler = new ApiRequestHandler();
+
+            var body = new SortedDictionary<string, object>
+            {
+                { "userId" , GlobalData.UserId },
+                { "height" , screenHeight },
+                { "pageIndex", 1 },
+                { "pageSize" , 1 },
+                { "width" , screenWidth },
+            };
+
+            var response = await apiHandler.SendApiRequestAsync(appImageUrl, body);
+            string url;
+
+            using (JsonDocument doc = JsonDocument.Parse(response))
+            {
+                JsonElement root = doc.RootElement;
+                if (root.TryGetProperty("body", out JsonElement bodyElement) &&
+                bodyElement.TryGetProperty("list", out JsonElement listElement) &&
+                listElement.GetArrayLength() > 0)
+                {
+                    JsonElement l = listElement[0];
+                    url = l.GetProperty("url").GetString();
+                    using (WebClient client = new WebClient())
+                    {
+                        try
+                        {
+                            client.DownloadFile(url, localPath);
+                            SetWallpaper(localPath);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"An error occurred: {ex.Message}.URL{url}");
+                        }
+                    }
+                }
+                else
+                {
+                    GlobalData.PageIndex = 1;
+                }
+            }
+        }
+
         private void DownloadAndSetWallpaper(string url)
         {
             string localPath = Path.Combine(Path.GetTempPath(), "currentWallpaper.jpg");
@@ -271,6 +480,41 @@ namespace _92CloudWallpaper
         [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
         private static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
 
+        private void ToggleAutoStart(object sender, EventArgs e)
+        {
+            if (autoStartMenuItem.Checked)
+            {
+                SetApplicationAutoStart(true);
+            }
+            else
+            {
+                SetApplicationAutoStart(false);
+            }
+        }
+
+        private void SetApplicationAutoStart(bool enable)
+        {
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true))
+            {
+                if (enable)
+                {
+                    key.SetValue(Application.ProductName, Application.ExecutablePath);
+                }
+                else
+                {
+                    key.DeleteValue(Application.ProductName, false);
+                }
+            }
+        }
+
+        private bool IsApplicationAutoStarting()
+        {
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false))
+            {
+                return key.GetValue(Application.ProductName) != null;
+            }
+        }
+
         private void SetWallpaper(string path)
         {
             const int SPI_SETDESKWALLPAPER = 20;
@@ -279,22 +523,18 @@ namespace _92CloudWallpaper
             SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, path, SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE);
         }
 
-        
-
-
         protected override void OnLoad(EventArgs e)
         {
             Visible = false; // 隐藏窗体
             ShowInTaskbar = false; // 移除任务栏图标
             base.OnLoad(e);
         }
+
         public enum WallpaperStyle : int
         {
             Tiled,
             Centered,
             Stretched
         }
-
-        
     }
 }
