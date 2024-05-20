@@ -16,16 +16,17 @@ namespace _92CloudWallpaper
     {
         private NotifyIcon trayIcon;
         private Timer timer;
-        private string imageUrl = "https://source.unsplash.com/random/1920x1080"; // 替换为你的图片URL
-        private int screenWidth = Screen.PrimaryScreen.Bounds.Width;
-        private int screenHeight = Screen.PrimaryScreen.Bounds.Height;
-        private string appImageUrl = "https://cnapi.levect.com/v1/photoFrame/imageList";
+        
+        private readonly int screenWidth = Screen.PrimaryScreen.Bounds.Width;
+        private readonly int screenHeight = Screen.PrimaryScreen.Bounds.Height;
+        //private string imageUrl = "https://source.unsplash.com/random/"+screenWidth+"x"+ screenHeight; // 替换为你的图片URL
+        private readonly string appImageUrl = "https://cnapi.levect.com/v1/photoFrame/imageList";
         private ToolStripMenuItem loginMenuItem;
         private ToolStripMenuItem autoStartMenuItem;
         private List<string> paths = new List<string>();
         private List<string> pathsTemp = new List<string>();
         private List<string> syncWallpaperURLs = new List<string>();
-        private int pathsCount = 0;
+        //private int pathsCount = 0;
         private int cacheIndex = 0;
         private const int CacheExpirationDays = 7;
 
@@ -33,7 +34,11 @@ namespace _92CloudWallpaper
         {
             InitializeComponent();
             InitializeTrayIcon();
+#if DEBUG
             InitializeTimer(5000);
+#else
+            InitializeTimer(600000);
+#endif
             _ = InitializeAndSetWallpaperAsync();  // 初始化时进行缓存并设置壁纸
         }
 
@@ -42,8 +47,11 @@ namespace _92CloudWallpaper
             ContextMenuStrip trayMenu = new ContextMenuStrip();
             ToolStripMenuItem changeWallpaperMenu = new ToolStripMenuItem("更换壁纸");
 
-            string[] intervals = { "暂停", "5 秒", "1 分钟", "1 小时", "1 天", "立即更换" };
-            int[] times = { 0, 5000, 60000, 3600000, 86400000 };
+            string[] intervals = { "暂停", "1 分钟", "10 分钟", "半小时", "1 小时", "1 天", "立即更换" };
+            int[] times =
+            {
+                0, 60000, 600000, 1800000, 3600000, 86400000
+            };
 
             for (int i = 0; i < intervals.Length; i++)
             {
@@ -63,9 +71,11 @@ namespace _92CloudWallpaper
             }
             trayMenu.Items.Add(loginMenuItem);
 
-            autoStartMenuItem = new ToolStripMenuItem("开机启动", null, ToggleAutoStart);
-            autoStartMenuItem.CheckOnClick = true;
-            autoStartMenuItem.Checked = IsApplicationAutoStarting();
+            autoStartMenuItem = new ToolStripMenuItem("开机启动", null, ToggleAutoStart)
+            {
+                CheckOnClick = true,
+                Checked = IsApplicationAutoStarting()
+            };
 
             trayMenu.Items.Add(autoStartMenuItem);
             trayMenu.Items.Add(changeWallpaperMenu);
@@ -241,11 +251,11 @@ namespace _92CloudWallpaper
 
                 // 删除接口中没有返回的图片，并保留一周内的图片
                 var cachedFiles = Directory.GetFiles(cacheDir);
-                /*
-                                var expiredFiles = cachedFiles
-                                    .Where(f => (DateTime.Now - File.GetCreationTime(f)).TotalDays > CacheExpirationDays)
-                                    .ToList();
-                */
+                
+                var expiredFiles = cachedFiles
+                    .Where(f => (DateTime.Now - File.GetCreationTime(f)).TotalDays > CacheExpirationDays)
+                    .ToList();
+                
                 foreach (var cachedFile in cachedFiles) { 
                     Console.WriteLine(cachedFile);
                 }

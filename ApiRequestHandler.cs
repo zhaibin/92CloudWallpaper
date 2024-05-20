@@ -12,9 +12,9 @@ namespace _92CloudWallpaper
 {
     public class ApiRequestHandler
     {
-        private HttpClient _client;
-        private string _apiKey = "Z2oCDluRc0JlXUAmRO";
-        private string ts = GenerateFormattedTimestamp();
+        private readonly HttpClient _client;
+        private const string _apiKey = "Z2oCDluRc0JlXUAmRO";
+        private readonly string  ts = GenerateFormattedTimestamp();
         public string userId = "0";
 
         public ApiRequestHandler()
