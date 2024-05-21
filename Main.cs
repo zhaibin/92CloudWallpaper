@@ -24,6 +24,7 @@ namespace _92CloudWallpaper
         private readonly string appImageUrl = "https://cnapi.levect.com/v1/photoFrame/imageList";
         private ToolStripMenuItem loginMenuItem;
         private ToolStripMenuItem autoStartMenuItem;
+        private ToolStripMenuItem changeWallpaperMenu; // 壁纸更换菜单
         private List<string> paths = new List<string>();
         private List<string> pathsTemp = new List<string>();
         private List<string> syncWallpaperURLs = new List<string>();
@@ -31,20 +32,29 @@ namespace _92CloudWallpaper
         private int cacheIndex = 0;
         private const int CacheExpirationDays = 7;
         private string downloadUrl = "";
-        private const string currentVersion = "v0.2.5"; // 当前版本号
+        private const string currentVersion = "v0.2.6"; // 当前版本号
         private const string githubReleasesUrl = "https://api.github.com/repos/zhaibin/92CloudWallpaper/releases/latest"; // GitHub 最新版本 API URL
         private Timer versionCheckTimer;
         private ToolStripMenuItem versionMenuItem;
+        private int savedInterval = 600000;
+        private string[] intervals = { "暂停", "1 分钟", "10 分钟", "半小时", "1 小时", "1 天", "立即更换" };
+        private int[] times =
+        {
+                0, 60000, 600000, 1800000, 3600000, 86400000
+            };
 
         public Main()
         {
+            savedInterval = Properties.Settings.Default.SelectedInterval;
             InitializeComponent();
             InitializeTrayIcon();
             InitializeVersionCheckTimer();
 #if DEBUG
             InitializeTimer(5000);
+            //Console.WriteLine("SelectedInterval" + Properties.Settings.Default.SelectedInterval);
+            //InitializeTimer(savedInterval);
 #else
-            InitializeTimer(600000);
+            InitializeTimer(savedInterval);
 #endif
             _ = InitializeAndSetWallpaperAsync();  // 初始化时进行缓存并设置壁纸
         }
@@ -52,21 +62,17 @@ namespace _92CloudWallpaper
         private void InitializeTrayIcon()
         {
             ContextMenuStrip trayMenu = new ContextMenuStrip();
-            ToolStripMenuItem changeWallpaperMenu = new ToolStripMenuItem("更换壁纸");
-
-            string[] intervals = { "暂停", "1 分钟", "10 分钟", "半小时", "1 小时", "1 天", "立即更换" };
-            int[] times =
-            {
-                0, 60000, 600000, 1800000, 3600000, 86400000
-            };
-
+            changeWallpaperMenu = new ToolStripMenuItem("更换壁纸");
+    
             for (int i = 0; i < intervals.Length; i++)
             {
                 var menuItem = new ToolStripMenuItem(intervals[i], null, ChangeWallpaperEvent);
                 if (i < times.Length) menuItem.Tag = times[i];
-                if (i == 3) menuItem.Checked = true;  // 默认选中每小时
+                Console.WriteLine(Array.IndexOf(times, savedInterval));
+                menuItem.Checked = i == Array.IndexOf(times,savedInterval); // 根据保存的索引设置选中状态
                 changeWallpaperMenu.DropDownItems.Add(menuItem);
             }
+
 
             if (Properties.Settings.Default.UserId == 0)
             {
@@ -154,37 +160,44 @@ namespace _92CloudWallpaper
         private async void DownloadLatestVersion(object sender, EventArgs e)
         {
             //string downloadUrl = "https://github.com/{username}/{repository}/releases/latest";
-            string installerPath = Path.Combine(Path.GetTempPath(), "92CloudWallpaper.exe");
+            if(downloadUrl != "")
+            { 
+                string installerPath = Path.Combine(Path.GetTempPath(), "92CloudWallpaper.exe");
 
-            using (var client = new WebClient())
+                using (var client = new WebClient())
+                {
+                    var progressDialog = new ProgressDialog
+                    {
+                        InfoLabel = { Text = "正在下载最新版本..." }
+                    };
+                    progressDialog.Show();
+
+                    client.DownloadProgressChanged += (s, ev) =>
+                    {
+                        progressDialog.ProgressBar.Value = ev.ProgressPercentage;
+                        progressDialog.InfoLabel.Text = $"已下载 {ev.BytesReceived / 1024} KB / {ev.TotalBytesToReceive / 1024} KB";
+                    };
+
+                    client.DownloadFileCompleted += (s, ev) =>
+                    {
+                        progressDialog.Close();
+                        if (ev.Error != null)
+                        {
+                            MessageBox.Show("下载失败：" + ev.Error.Message, "下载错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                        else
+                        {
+                            MessageBox.Show("下载完成，即将安装。", "下载完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            System.Diagnostics.Process.Start(installerPath);
+                        }
+                    };
+
+                    await client.DownloadFileTaskAsync(new Uri(downloadUrl), installerPath);
+                }
+            }
+            else
             {
-                var progressDialog = new ProgressDialog
-                {
-                    InfoLabel = { Text = "正在下载最新版本..." }
-                };
-                progressDialog.Show();
-
-                client.DownloadProgressChanged += (s, ev) =>
-                {
-                    progressDialog.ProgressBar.Value = ev.ProgressPercentage;
-                    progressDialog.InfoLabel.Text = $"已下载 {ev.BytesReceived / 1024} KB / {ev.TotalBytesToReceive / 1024} KB";
-                };
-
-                client.DownloadFileCompleted += (s, ev) =>
-                {
-                    progressDialog.Close();
-                    if (ev.Error != null)
-                    {
-                        MessageBox.Show("下载失败：" + ev.Error.Message, "下载错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                    else
-                    {
-                        MessageBox.Show("下载完成，即将安装。", "下载完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        System.Diagnostics.Process.Start(installerPath);
-                    }
-                };
-
-                await client.DownloadFileTaskAsync(new Uri(downloadUrl), installerPath);
+                MessageBox.Show("下载文件出现异常。", "下载错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -216,6 +229,11 @@ namespace _92CloudWallpaper
         private void ChangeWallpaperEvent(object sender, EventArgs e)
         {
             var clickedItem = sender as ToolStripMenuItem;
+            int selectedIndex = changeWallpaperMenu.DropDownItems.IndexOf(clickedItem);
+            
+            Properties.Settings.Default.SelectedInterval = times[selectedIndex];
+            Console.WriteLine($"selectedIndex: {times[selectedIndex]}");
+            Properties.Settings.Default.Save();
 
             foreach (ToolStripMenuItem item in clickedItem.GetCurrentParent().Items)
             {
@@ -243,13 +261,15 @@ namespace _92CloudWallpaper
 
         private void InitializeTimer(int interval)
         {
-            timer = new Timer
+            if (timer == null)
             {
-                Interval = interval
-            };
-            timer.Tick += async (sender, e) => await SetWallpaperAsync();
+                timer = new Timer();
+                timer.Tick += async (sender, e) => await SetWallpaperAsync();
+            }
+            timer.Interval = interval;
             timer.Start();
         }
+
 
         private async void Logout(object sender, EventArgs e)
         {

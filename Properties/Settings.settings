@@ -5,5 +5,8 @@
     <Setting Name="UserId" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">0</Value>
     </Setting>
+    <Setting Name="SelectedInterval" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">600000</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

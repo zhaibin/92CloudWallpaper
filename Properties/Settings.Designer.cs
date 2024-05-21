@@ -34,5 +34,17 @@ namespace _92CloudWallpaper.Properties {
                 this["UserId"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("600000")]
+        public int SelectedInterval {
+            get {
+                return ((int)(this["SelectedInterval"]));
+            }
+            set {
+                this["SelectedInterval"] = value;
+            }
+        }
     }
 }
