@@ -129,7 +129,9 @@ namespace _92CloudWallpaper
             using (var client = new WebClient())
             {
                 client.Headers.Add("User-Agent", "request");
+                client.Encoding = System.Text.Encoding.UTF8;  // 确保处理 UTF-8 编码
                 var response = client.DownloadString(githubReleasesUrl);
+                //Console.WriteLine(response);
                 using (JsonDocument doc = JsonDocument.Parse(response))
                 {
                     var latestVersion = doc.RootElement.GetProperty("tag_name").GetString();
