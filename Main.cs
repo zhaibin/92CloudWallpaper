@@ -29,11 +29,17 @@ namespace _92CloudWallpaper
         //private int pathsCount = 0;
         private int cacheIndex = 0;
         private const int CacheExpirationDays = 7;
+        private string downloadUrl = "";
+        private const string currentVersion = "v0.2.3"; // 当前版本号
+        private const string githubReleasesUrl = "https://api.github.com/repos/zhaibin/92CloudWallpaper/releases/latest"; // GitHub 最新版本 API URL
+        private Timer versionCheckTimer;
+        private ToolStripMenuItem versionMenuItem;
 
         public Main()
         {
             InitializeComponent();
             InitializeTrayIcon();
+            InitializeVersionCheckTimer();
 #if DEBUG
             InitializeTimer(5000);
 #else
@@ -79,6 +85,10 @@ namespace _92CloudWallpaper
 
             trayMenu.Items.Add(autoStartMenuItem);
             trayMenu.Items.Add(changeWallpaperMenu);
+            versionMenuItem = new ToolStripMenuItem($"版本 {currentVersion}");
+            versionMenuItem.Click += CheckForUpdate;
+
+            trayMenu.Items.Add(versionMenuItem);
             trayMenu.Items.Add("退出程序", null, (sender, e) => Application.Exit());
 
             Icon trayIconImage = LoadIconFromResource("_92CloudWallpaper.7418_logo32.png");
@@ -91,6 +101,67 @@ namespace _92CloudWallpaper
                 Text = "92云壁纸"
             };
             trayIcon.MouseClick += TrayIcon_MouseClick;
+        }
+        private void InitializeVersionCheckTimer()
+        {
+            versionCheckTimer = new Timer
+            {
+                Interval = 86400000 // 每24小时检查一次
+            };
+            versionCheckTimer.Tick += async (sender, e) => await CheckForUpdateAsync();
+            versionCheckTimer.Start();
+        }
+
+        private async void CheckForUpdate(object sender, EventArgs e)
+        {
+            await CheckForUpdateAsync();
+        }
+
+        private async Task CheckForUpdateAsync()
+        {
+            using (var client = new WebClient())
+            {
+                client.Headers.Add("User-Agent", "request");
+                var response = client.DownloadString(githubReleasesUrl);
+                using (JsonDocument doc = JsonDocument.Parse(response))
+                {
+                    var latestVersion = doc.RootElement.GetProperty("tag_name").GetString();
+                    try 
+                    {
+                        downloadUrl = doc.RootElement.GetProperty("assets")[0].GetProperty("browser_download_url").GetString();
+                    }
+                    catch(Exception ex)
+                    {
+                        downloadUrl = "";
+                    }
+                    
+                    Console.WriteLine(latestVersion);
+                    if (latestVersion != currentVersion)
+                    {
+                        versionMenuItem.Text = $"版本 {currentVersion} (新版本可用)";
+                        versionMenuItem.Click -= CheckForUpdate;
+                        versionMenuItem.Click += DownloadLatestVersion;
+                    }
+                    else
+                    {
+                        versionMenuItem.Text = $"版本 {currentVersion}";
+                    }
+                }
+            }
+        }
+
+        private void DownloadLatestVersion(object sender, EventArgs e)
+        {
+            if (downloadUrl != "") 
+            {
+                using (var client = new WebClient())
+                {
+                    string installerPath = Path.Combine(Path.GetTempPath(), "92CloudWallpaper.exe");
+                    client.DownloadFile(downloadUrl, installerPath);
+                    System.Diagnostics.Process.Start(installerPath);
+                }
+            }
+            
         }
 
         private void TrayIcon_MouseClick(object sender, MouseEventArgs e)
