@@ -31,7 +31,7 @@ namespace _92CloudWallpaper
         private int cacheIndex = 0;
         private const int CacheExpirationDays = 7;
         private string downloadUrl = "";
-        private const string currentVersion = "v0.2.4"; // 当前版本号
+        private const string currentVersion = "v0.2.5"; // 当前版本号
         private const string githubReleasesUrl = "https://api.github.com/repos/zhaibin/92CloudWallpaper/releases/latest"; // GitHub 最新版本 API URL
         private Timer versionCheckTimer;
         private ToolStripMenuItem versionMenuItem;
@@ -151,19 +151,43 @@ namespace _92CloudWallpaper
             }
         }
 
-        private void DownloadLatestVersion(object sender, EventArgs e)
+        private async void DownloadLatestVersion(object sender, EventArgs e)
         {
-            if (downloadUrl != "") 
+            //string downloadUrl = "https://github.com/{username}/{repository}/releases/latest";
+            string installerPath = Path.Combine(Path.GetTempPath(), "92CloudWallpaper.exe");
+
+            using (var client = new WebClient())
             {
-                using (var client = new WebClient())
+                var progressDialog = new ProgressDialog
                 {
-                    string installerPath = Path.Combine(Path.GetTempPath(), "92CloudWallpaper.exe");
-                    client.DownloadFile(downloadUrl, installerPath);
-                    System.Diagnostics.Process.Start(installerPath);
-                }
+                    InfoLabel = { Text = "正在下载最新版本..." }
+                };
+                progressDialog.Show();
+
+                client.DownloadProgressChanged += (s, ev) =>
+                {
+                    progressDialog.ProgressBar.Value = ev.ProgressPercentage;
+                    progressDialog.InfoLabel.Text = $"已下载 {ev.BytesReceived / 1024} KB / {ev.TotalBytesToReceive / 1024} KB";
+                };
+
+                client.DownloadFileCompleted += (s, ev) =>
+                {
+                    progressDialog.Close();
+                    if (ev.Error != null)
+                    {
+                        MessageBox.Show("下载失败：" + ev.Error.Message, "下载错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    else
+                    {
+                        MessageBox.Show("下载完成，即将安装。", "下载完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        System.Diagnostics.Process.Start(installerPath);
+                    }
+                };
+
+                await client.DownloadFileTaskAsync(new Uri(downloadUrl), installerPath);
             }
-            
         }
+
 
         private void TrayIcon_MouseClick(object sender, MouseEventArgs e)
         {
