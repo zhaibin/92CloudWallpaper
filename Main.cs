@@ -31,7 +31,7 @@ namespace _92CloudWallpaper
         private int cacheIndex = 0;
         private const int CacheExpirationDays = 7;
         private string downloadUrl = "";
-        private const string currentVersion = "v0.2.3"; // 当前版本号
+        private const string currentVersion = "v0.2.4"; // 当前版本号
         private const string githubReleasesUrl = "https://api.github.com/repos/zhaibin/92CloudWallpaper/releases/latest"; // GitHub 最新版本 API URL
         private Timer versionCheckTimer;
         private ToolStripMenuItem versionMenuItem;
