@@ -6,20 +6,25 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Threading.Tasks;
-
+using Microsoft.Extensions.Configuration;
 
 namespace _92CloudWallpaper
 {
     public class ApiRequestHandler
     {
         private readonly HttpClient _client;
-        private const string _apiKey = "Z2oCDluRc0JlXUAmRO";
+        private readonly string _apiKey;
         private readonly string  ts = GenerateFormattedTimestamp();
         public string userId = "0";
 
         public ApiRequestHandler()
         {
             _client = new HttpClient();
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+                .AddJsonFile("appsettings.json")
+                .Build();
+            _apiKey = configuration["ApiKey"];
         }
         // 发送API请求的通用方法
         public async Task<string> SendApiRequestAsync(string url, object body)

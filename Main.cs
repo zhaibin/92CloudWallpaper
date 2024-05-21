@@ -12,7 +12,7 @@ using System.Linq;
 
 namespace _92CloudWallpaper
 {
-    public partial class Form1 : Form
+    public partial class Main : Form
     {
         private NotifyIcon trayIcon;
         private Timer timer;
@@ -30,7 +30,7 @@ namespace _92CloudWallpaper
         private int cacheIndex = 0;
         private const int CacheExpirationDays = 7;
 
-        public Form1()
+        public Main()
         {
             InitializeComponent();
             InitializeTrayIcon();

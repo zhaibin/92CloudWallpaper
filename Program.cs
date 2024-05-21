@@ -30,7 +30,7 @@ namespace _92CloudWallpaper
             }
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Form1());
+            Application.Run(new Main());
             // 释放Mutex
             mutex.ReleaseMutex();
         }
