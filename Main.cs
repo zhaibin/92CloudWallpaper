@@ -9,6 +9,7 @@ using System.Text.Json;
 using Microsoft.Win32;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Policy;
 
 namespace _92CloudWallpaper
 {
@@ -132,7 +133,7 @@ namespace _92CloudWallpaper
                     }
                     catch(Exception ex)
                     {
-                        downloadUrl = "";
+                        MessageBox.Show($"An error occurred: {ex.Message}.URL{downloadUrl}");
                     }
                     
                     Console.WriteLine(latestVersion);
@@ -144,7 +145,7 @@ namespace _92CloudWallpaper
                     }
                     else
                     {
-                        versionMenuItem.Text = $"版本 {currentVersion}";
+                        versionMenuItem.Text = $"版本 {currentVersion} (暂无新版本)";
                     }
                 }
             }
