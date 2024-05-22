@@ -52,8 +52,10 @@ namespace _92CloudWallpaper
             Controls.Add(loginButton);
             Controls.Add(errorMessageLabel);
 
-            countdownTimer = new Timer();
-            countdownTimer.Interval = 1000;
+            countdownTimer = new Timer
+            {
+                Interval = 1000
+            };
             countdownTimer.Tick += new EventHandler(CountdownTimer_Tick);
         }
 

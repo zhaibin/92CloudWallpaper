@@ -10,6 +10,7 @@ using Microsoft.Win32;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Policy;
+using System.Data.SqlClient;
 
 namespace _92CloudWallpaper
 {
@@ -26,7 +27,7 @@ namespace _92CloudWallpaper
         private ToolStripMenuItem autoStartMenuItem;
         private ToolStripMenuItem changeWallpaperMenu; // 壁纸更换菜单
         private List<string> paths = new List<string>();
-        private List<string> pathsTemp = new List<string>();
+        private readonly List<string> pathsTemp = new List<string>();
         private List<string> syncWallpaperURLs = new List<string>();
         //private int pathsCount = 0;
         private int cacheIndex = 0;
@@ -36,27 +37,34 @@ namespace _92CloudWallpaper
         private const string githubReleasesUrl = "https://api.github.com/repos/zhaibin/92CloudWallpaper/releases/latest"; // GitHub 最新版本 API URL
         private Timer versionCheckTimer;
         private ToolStripMenuItem versionMenuItem;
-        private int savedInterval = 600000;
-        private string[] intervals = { "暂停", "1 分钟", "10 分钟", "半小时", "1 小时", "1 天", "立即更换" };
-        private int[] times =
+        private readonly int savedInterval = 600000;
+        private readonly string[] intervals = { "暂停", "1 分钟", "10 分钟", "半小时", "1 小时", "1 天" };
+        private readonly int[] times =
         {
                 0, 60000, 600000, 1800000, 3600000, 86400000
-            };
-
+        };
+        
         public Main()
         {
-            savedInterval = Properties.Settings.Default.SelectedInterval;
-            InitializeComponent();
-            InitializeTrayIcon();
-            InitializeVersionCheckTimer();
-#if DEBUG
-            InitializeTimer(5000);
-            //Console.WriteLine("SelectedInterval" + Properties.Settings.Default.SelectedInterval);
-            //InitializeTimer(savedInterval);
-#else
-            InitializeTimer(savedInterval);
-#endif
-            _ = InitializeAndSetWallpaperAsync();  // 初始化时进行缓存并设置壁纸
+            try
+            {
+                savedInterval = Properties.Settings.Default.SelectedInterval;
+                InitializeComponent();
+                InitializeTrayIcon();
+                InitializeVersionCheckTimer();
+ #if DEBUG
+                InitializeTimer(2000);
+                //Console.WriteLine("SelectedInterval" + Properties.Settings.Default.SelectedInterval);
+                //InitializeTimer(savedInterval);
+ #else
+                InitializeTimer(savedInterval);
+ #endif
+                _ = InitializeAndSetWallpaperAsync();  // 初始化时进行缓存并设置壁纸
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError("Error during initialization", ex);
+            }
         }
 
         private void InitializeTrayIcon()
@@ -68,7 +76,7 @@ namespace _92CloudWallpaper
             {
                 var menuItem = new ToolStripMenuItem(intervals[i], null, ChangeWallpaperEvent);
                 if (i < times.Length) menuItem.Tag = times[i];
-                Console.WriteLine(Array.IndexOf(times, savedInterval));
+                //Console.WriteLine(Array.IndexOf(times, savedInterval));
                 menuItem.Checked = i == Array.IndexOf(times,savedInterval); // 根据保存的索引设置选中状态
                 changeWallpaperMenu.DropDownItems.Add(menuItem);
             }
@@ -232,21 +240,22 @@ namespace _92CloudWallpaper
         {
             var clickedItem = sender as ToolStripMenuItem;
             int selectedIndex = changeWallpaperMenu.DropDownItems.IndexOf(clickedItem);
-            
-            Properties.Settings.Default.SelectedInterval = times[selectedIndex];
-            Console.WriteLine($"selectedIndex: {times[selectedIndex]}");
-            Properties.Settings.Default.Save();
-
+            Console.WriteLine($"selectedIndex: {selectedIndex},timesCount {times.Count()}");
+            if (selectedIndex < times.Count())
+            {
+                Properties.Settings.Default.SelectedInterval = times[selectedIndex];
+                Properties.Settings.Default.Save();
+            }
             foreach (ToolStripMenuItem item in clickedItem.GetCurrentParent().Items)
             {
                 item.Checked = item == clickedItem;
             }
 
-            if (clickedItem.Text == "立即更换")
+/*            if (clickedItem.Text == "立即更换")
             {
                 _ = SetWallpaperAsync();
                 return;
-            }
+            }*/
 
             int interval = (int)clickedItem.Tag;
             if (interval > 0)
@@ -326,12 +335,16 @@ namespace _92CloudWallpaper
         private async Task DownloadAsync()
         {
             int pageIndex = GlobalData.PageIndex;
-            int pageSize = 4;
+            int pageSize = 8;
             var apiHandler = new ApiRequestHandler();
 
             var body = new SortedDictionary<string, object>
             {
+#if DEBUG
+                { "userId" , 8282414 }, //wk 8282414,zb 60587,lx 23,xj 44772
+#else
                 { "userId" , GlobalData.UserId },
+#endif
                 { "height" , screenHeight },
                 { "pageIndex", pageIndex },
                 { "pageSize" , pageSize },
@@ -346,20 +359,26 @@ namespace _92CloudWallpaper
                 JsonElement root = doc.RootElement;
                 JsonElement bodyElement = root.GetProperty("body");
                 JsonElement listElement = bodyElement.GetProperty("list");
-
+                Console.WriteLine($"list count {listElement.EnumerateArray().Count()},pagesize: {pageSize},pageIndex:{pageIndex}");
                 foreach (JsonElement l in listElement.EnumerateArray())
                 {
                     String url = l.GetProperty("url").GetString();
-                    urlList.Add(url);
-                    syncWallpaperURLs.Add(url);
+                    if (!urlList.Contains(url))
+                    {
+                        urlList.Add(url);
+                    }
+                    if (!syncWallpaperURLs.Contains(url))
+                    {
+                        syncWallpaperURLs.Add(url);
+                    }
                 }
             }
-            //Console.WriteLine($"urlList1111 {syncWallpaperURLs.Count}");
+            Console.WriteLine($"syncWallpaperURLs--normal {syncWallpaperURLs.Count}");
             string cacheDir = GetCacheDir();
             if (urlList.Count == 0)
             {
-                //Console.WriteLine($"urlList222 {urlList.Count}");
-                
+                Console.WriteLine($"urlList.Count {urlList.Count}");
+
 
                 // 确保缓存目录存在
                 if (!Directory.Exists(cacheDir))
@@ -375,13 +394,16 @@ namespace _92CloudWallpaper
                     .ToList();
                 
                 foreach (var cachedFile in cachedFiles) { 
-                    Console.WriteLine(cachedFile);
+                    Console.WriteLine($"cachedFile : {cachedFile}");
                 }
                 List<string> newPaths = new List<string>();
-                //Console.WriteLine($"urlList222 {syncWallpaperURLs.Count}");
+                Console.WriteLine($"syncWallpaperURLs.Count {syncWallpaperURLs.Count}");
                 foreach (var syncWallpaperURL in syncWallpaperURLs){
                     //Console.WriteLine(syncWallpaperURL);
-                    newPaths.Add(Path.Combine(cacheDir, Path.GetFileName(syncWallpaperURL)));
+                    var newPath = Path.Combine(cacheDir, Path.GetFileName(syncWallpaperURL));
+                    Console.WriteLine(newPath);
+                    if (!newPaths.Contains(newPath))
+                        newPaths.Add(newPath);
                 }
                 var filesToDelete = cachedFiles
                     .Except(newPaths.ToArray())
@@ -390,7 +412,7 @@ namespace _92CloudWallpaper
 
                 foreach (var file in filesToDelete)
                 {
-                    //Console.WriteLine(file);
+                    Console.WriteLine($"fileToDel: {file}");
                     if (File.Exists(file))
                     {
                         File.Delete(file);
@@ -510,6 +532,7 @@ namespace _92CloudWallpaper
                     long fileSize = new FileInfo(localPath).Length;
                     if (fileSize > 0)
                     {
+                        //Console.WriteLine($" localPath:{localPath}");
                         SetWallpaper(localPath);
                         cacheIndex++;
                         if (cacheIndex >= paths.Count)
