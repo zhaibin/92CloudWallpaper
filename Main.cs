@@ -9,8 +9,6 @@ using System.Text.Json;
 using Microsoft.Win32;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Policy;
-using System.Data.SqlClient;
 
 namespace _92CloudWallpaper
 {
@@ -33,7 +31,7 @@ namespace _92CloudWallpaper
         private int cacheIndex = 0;
         private const int CacheExpirationDays = 7;
         private string downloadUrl = "";
-        private const string currentVersion = "v0.2.6"; // 当前版本号
+        private const string currentVersion = "v0.2.8"; // 当前版本号
         private const string githubReleasesUrl = "https://api.github.com/repos/zhaibin/92CloudWallpaper/releases/latest"; // GitHub 最新版本 API URL
         private Timer versionCheckTimer;
         private ToolStripMenuItem versionMenuItem;
@@ -341,7 +339,7 @@ namespace _92CloudWallpaper
             var body = new SortedDictionary<string, object>
             {
 #if DEBUG
-                { "userId" , 8282414 }, //wk 8282414,zb 60587,lx 23,xj 44772
+                { "userId" , 60587 }, //wk 8282414,zb 60587,lx 23,xj 44772
 #else
                 { "userId" , GlobalData.UserId },
 #endif

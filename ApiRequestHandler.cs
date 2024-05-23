@@ -14,8 +14,9 @@ namespace _92CloudWallpaper
     {
         private readonly HttpClient _client;
         private readonly string _apiKey;
-        private readonly string  ts = GenerateFormattedTimestamp();
+        private readonly string ts = GenerateFormattedTimestamp();
         public string userId = "0";
+        private readonly string _uuid;
 
         public ApiRequestHandler()
         {
@@ -25,7 +26,11 @@ namespace _92CloudWallpaper
                 .AddJsonFile("appsettings.json")
                 .Build();
             _apiKey = configuration["ApiKey"];
+
+            // 获取或生成 UUID
+            _uuid = GetOrCreateUuid();
         }
+
         // 发送API请求的通用方法
         public async Task<string> SendApiRequestAsync(string url, object body)
         {
@@ -39,13 +44,13 @@ namespace _92CloudWallpaper
                 { "version", "0.1" },
                 { "companyId", "10120" },
                 { "countryCode", "+86" },
+                { "did", _uuid }
             };
             var message = new Dictionary<string, object>
             {
                 { "header" , header },
                 { "body" , body },
             };
-
 
             var options = new JsonSerializerOptions
             {
@@ -54,20 +59,15 @@ namespace _92CloudWallpaper
             };
             var jsonBody = JsonSerializer.Serialize(body, options);
 
-            //Console.WriteLine(jsonBody);
-
             var sign = GenerateMd5Signature(messageID, timeStamp, _apiKey, jsonBody);
-            //Console.WriteLine(sign);
             header["sign"] = sign;
             message["header"] = header;
 
             var jsonNew = JsonSerializer.Serialize(message, options);
-            //Console.WriteLine(jsonNew);
-
             var content = new StringContent(jsonNew, Encoding.UTF8, "application/json");
             Console.WriteLine($"req : {jsonNew}");
             var response = await _client.PostAsync(url, content);
-            
+
             return await response.Content.ReadAsStringAsync();
         }
 
@@ -76,16 +76,13 @@ namespace _92CloudWallpaper
         {
             return DateTime.Now.ToString("yyyyMMddHHmmss");
         }
+
         private static string GenerateMd5Signature(string messageId, string timestamp, string secretKey, string messageBody)
         {
-            // Concatenate all parts to form the base string for hashing
             var rawString = $"{messageId}{timestamp}{secretKey}{messageBody}";
-            //Console.WriteLine(rawString);
             using (var md5 = MD5.Create())
             {
-                // Compute the MD5 hash
                 var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(rawString));
-                // Convert hash to a hexadecimal string
                 var sb = new StringBuilder();
                 foreach (var b in hash)
                 {
@@ -95,7 +92,18 @@ namespace _92CloudWallpaper
             }
         }
 
-        
+        // 获取或生成 UUID
+        private static string GetOrCreateUuid()
+        {
+            var uuid = Properties.Settings.Default.Uuid;
+            if (string.IsNullOrEmpty(uuid))
+            {
+                uuid = Guid.NewGuid().ToString();
+                Properties.Settings.Default.Uuid = uuid;
+                Properties.Settings.Default.Save();
+            }
+            return uuid;
+        }
     }
 
     public static class GlobalData
