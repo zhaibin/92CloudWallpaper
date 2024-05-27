@@ -31,6 +31,7 @@ namespace _92CloudWallpaper
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Main());
+            //Application.Run(new ImageCarousel());
             // 释放Mutex
             mutex.ReleaseMutex();
         }

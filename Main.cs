@@ -1,14 +1,6 @@
 ﻿using System;
-using System.Drawing;
-using System.Windows.Forms;
-using System.Net;
-using System.IO;
-using System.Reflection;
 using System.Threading.Tasks;
-using System.Text.Json;
-using Microsoft.Win32;
-using System.Collections.Generic;
-using System.Linq;
+using System.Windows.Forms;
 
 namespace _92CloudWallpaper
 {
@@ -16,306 +8,213 @@ namespace _92CloudWallpaper
     {
         private NotifyIcon trayIcon;
         private Timer timer;
-        
-        private readonly int screenWidth = Screen.PrimaryScreen.Bounds.Width;
-        private readonly int screenHeight = Screen.PrimaryScreen.Bounds.Height;
-        //private string imageUrl = "https://source.unsplash.com/random/"+screenWidth+"x"+ screenHeight; // 替换为你的图片URL
-        private readonly string appImageUrl = "https://cnapi.levect.com/v1/photoFrame/imageList";
-        private ToolStripMenuItem loginMenuItem;
-        private ToolStripMenuItem autoStartMenuItem;
-        private ToolStripMenuItem changeWallpaperMenu; // 壁纸更换菜单
-        private List<string> paths = new List<string>();
-        private readonly List<string> pathsTemp = new List<string>();
-        private List<string> syncWallpaperURLs = new List<string>();
-        //private int pathsCount = 0;
-        private int cacheIndex = 0;
-        private const int CacheExpirationDays = 7;
-        private string downloadUrl = "";
-        private const string currentVersion = "v0.2.8"; // 当前版本号
-        private const string githubReleasesUrl = "https://api.github.com/repos/zhaibin/92CloudWallpaper/releases/latest"; // GitHub 最新版本 API URL
-        private Timer versionCheckTimer;
-        private ToolStripMenuItem versionMenuItem;
-        private readonly int savedInterval = 600000;
-        private readonly string[] intervals = { "暂停", "1 分钟", "10 分钟", "半小时", "1 小时", "1 天" };
-        private readonly int[] times =
-        {
-                0, 60000, 600000, 1800000, 3600000, 86400000
-        };
-        
+        public int defaultInterval = 600000;
+        public int savedInterval { get; set; } = 600000; // 默认值为10分钟
+        public static readonly string CurrentVersion = "v0.3.0"; // 当前版本号
+        //private WallpaperControlWindow wallpaperControlWindow;
+        //private bool isPaused = false;
+        private MenuHandler menuHandler;
+        private SoftwareUpdater softwareUpdater;
+        private ImageCacheManager cacheManager;
+
+        //public int SavedInterval { get { return savedInterval; } }
+        //public int SavedInterval { get; set; } = 600000; // 默认值为10分钟
+
         public Main()
         {
             try
             {
+                cacheManager = new ImageCacheManager();
                 savedInterval = Properties.Settings.Default.SelectedInterval;
-                InitializeComponent();
-                InitializeTrayIcon();
-                InitializeVersionCheckTimer();
- #if DEBUG
-                InitializeTimer(2000);
-                //Console.WriteLine("SelectedInterval" + Properties.Settings.Default.SelectedInterval);
-                //InitializeTimer(savedInterval);
- #else
+                //InitializeComponent();
+                trayIcon = new NotifyIcon();
+                timer = new Timer();
+                menuHandler = new MenuHandler(this, trayIcon, timer);
+                softwareUpdater = new SoftwareUpdater(this);
+                //if (Properties.Settings.Default.IsFloatWindowVisible)
+                //{
+                //    ShowFloatWindow();
+                //}
                 InitializeTimer(savedInterval);
- #endif
-                _ = InitializeAndSetWallpaperAsync();  // 初始化时进行缓存并设置壁纸
+
+                //_ = InitializeAndSetWallpaperAsync();  // 初始化时进行缓存并设置壁纸
+                Task.Run(() => InitializeCarouselAsync());
+
+                //ShowWallpaperControlWindow();
             }
             catch (Exception ex)
             {
                 Logger.LogError("Error during initialization", ex);
             }
         }
-
-        private void InitializeTrayIcon()
+        private void ShowFloatWindow()
         {
-            ContextMenuStrip trayMenu = new ContextMenuStrip();
-            changeWallpaperMenu = new ToolStripMenuItem("更换壁纸");
+            WallpaperControlWindow floatWindow = new WallpaperControlWindow(this, menuHandler);
+            floatWindow.Show();
+        }
+        private async Task InitializeCarouselAsync()
+        {
+            await cacheManager.LoadImagesAsync();
+            if (cacheManager.ImageInfos.Count > 0 && cacheManager.ImageCache.ContainsKey(cacheManager.ImageInfos[cacheManager.CurrentIndex].Url))
+            {
+                UpdateImageDisplay(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
+                timer.Start();
+            }
+        }
+        private void UpdateImageDisplay(ImageCacheManager.ImageCacheItem cacheItem)
+        {
+            try
+            {
+
+                SetWallpaper(cacheItem.FilePath);
+                cacheManager.SaveCurrentPosition(cacheManager.CurrentIndex);
+            }
+            catch (Exception ex)
+            {
+                // 图片文件可能损坏或格式不支持，处理异常并记录日志
+                Console.WriteLine($"Failed to load image from {cacheItem.FilePath}. Exception: {ex.Message}");
+            }
+        }
     
-            for (int i = 0; i < intervals.Length; i++)
-            {
-                var menuItem = new ToolStripMenuItem(intervals[i], null, ChangeWallpaperEvent);
-                if (i < times.Length) menuItem.Tag = times[i];
-                //Console.WriteLine(Array.IndexOf(times, savedInterval));
-                menuItem.Checked = i == Array.IndexOf(times,savedInterval); // 根据保存的索引设置选中状态
-                changeWallpaperMenu.DropDownItems.Add(menuItem);
-            }
-
-
-            if (Properties.Settings.Default.UserId == 0)
-            {
-                loginMenuItem = new ToolStripMenuItem("登录", null, Login);
-            }
-            else
-            {
-                loginMenuItem = new ToolStripMenuItem("登出", null, Logout);
-            }
-            trayMenu.Items.Add(loginMenuItem);
-
-            autoStartMenuItem = new ToolStripMenuItem("开机启动", null, ToggleAutoStart)
-            {
-                CheckOnClick = true,
-                Checked = IsApplicationAutoStarting()
-            };
-
-            trayMenu.Items.Add(autoStartMenuItem);
-            trayMenu.Items.Add(changeWallpaperMenu);
-            versionMenuItem = new ToolStripMenuItem($"版本 {currentVersion}");
-            versionMenuItem.Click += CheckForUpdate;
-
-            trayMenu.Items.Add(versionMenuItem);
-            trayMenu.Items.Add("退出程序", null, (sender, e) => Application.Exit());
-
-            Icon trayIconImage = LoadIconFromResource("_92CloudWallpaper.7418_logo32.png");
-
-            trayIcon = new NotifyIcon()
-            {
-                Icon = trayIconImage,
-                ContextMenuStrip = trayMenu,
-                Visible = true,
-                Text = "92云壁纸"
-            };
-            trayIcon.MouseClick += TrayIcon_MouseClick;
-        }
-        private void InitializeVersionCheckTimer()
+        public void SetWallpaperChangeInterval(int interval)
         {
-            versionCheckTimer = new Timer
-            {
-                Interval = 86400000 // 每24小时检查一次
-            };
-            versionCheckTimer.Tick += async (sender, e) => await CheckForUpdateAsync();
-            versionCheckTimer.Start();
+            savedInterval = interval;
+            Properties.Settings.Default.SelectedInterval = interval;
+            Properties.Settings.Default.Save();
+        }
+        
+
+        public async void CheckForUpdate(object sender, EventArgs e)
+        {
+            await softwareUpdater.CheckForUpdateAsync();
         }
 
-        private async void CheckForUpdate(object sender, EventArgs e)
+        public void UpdateVersionMenuItemText(string text)
         {
-            await CheckForUpdateAsync();
+            menuHandler.UpdateVersionMenuItemText(text);
         }
 
-        private async Task CheckForUpdateAsync()
+        public void SetVersionMenuItemClickEvent(EventHandler eventHandler)
         {
-            using (var client = new WebClient())
+            menuHandler.SetVersionMenuItemClickEvent(eventHandler);
+        }
+        private void OnTimedEvent(object sender, EventArgs e)
+        {
+            ShowNextImage();
+        }
+
+        private void NextButton_Click(object sender, EventArgs e)
+        {
+            ShowNextImage();
+        }
+
+        private void PrevButton_Click(object sender, EventArgs e)
+        {
+            ShowPrevImage();
+        }
+
+        public void ShowNextImage()
+        {
+            if (cacheManager.ImageInfos.Count > 0)
             {
-                client.Headers.Add("User-Agent", "request");
-                client.Encoding = System.Text.Encoding.UTF8;  // 确保处理 UTF-8 编码
-                var response = client.DownloadString(githubReleasesUrl);
-                //Console.WriteLine(response);
-                using (JsonDocument doc = JsonDocument.Parse(response))
+                cacheManager.CurrentIndex = (cacheManager.CurrentIndex + 1) % cacheManager.ImageInfos.Count;
+                if (cacheManager.ImageCache.ContainsKey(cacheManager.ImageInfos[cacheManager.CurrentIndex].Url))
                 {
-                    var latestVersion = doc.RootElement.GetProperty("tag_name").GetString();
-                    try 
-                    {
-                        downloadUrl = doc.RootElement.GetProperty("assets")[0].GetProperty("browser_download_url").GetString();
-                    }
-                    catch(Exception ex)
-                    {
-                        MessageBox.Show($"An error occurred: {ex.Message}.URL{downloadUrl}");
-                    }
-                    
-                    Console.WriteLine(latestVersion);
-                    if (latestVersion != currentVersion)
-                    {
-                        versionMenuItem.Text = $"版本 {currentVersion} (新版本可用)";
-                        versionMenuItem.Click -= CheckForUpdate;
-                        versionMenuItem.Click += DownloadLatestVersion;
-                    }
-                    else
-                    {
-                        versionMenuItem.Text = $"版本 {currentVersion} (暂无新版本)";
-                    }
+                    UpdateImageDisplay(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
+                }
+
+                // 仅在最后一张时调用同步方法
+                if (cacheManager.CurrentIndex == cacheManager.ImageInfos.Count - 1)
+                {
+                    Task.Run(() => cacheManager.LoadImagesAsync());
                 }
             }
         }
 
-        private async void DownloadLatestVersion(object sender, EventArgs e)
+        public void ShowPrevImage()
         {
-            //string downloadUrl = "https://github.com/{username}/{repository}/releases/latest";
-            if(downloadUrl != "")
-            { 
-                string installerPath = Path.Combine(Path.GetTempPath(), "92CloudWallpaper.exe");
-
-                using (var client = new WebClient())
+            if (cacheManager.ImageInfos.Count > 0)
+            {
+                cacheManager.CurrentIndex = (cacheManager.CurrentIndex - 1 + cacheManager.ImageInfos.Count) % cacheManager.ImageInfos.Count;
+                if (cacheManager.ImageCache.ContainsKey(cacheManager.ImageInfos[cacheManager.CurrentIndex].Url))
                 {
-                    var progressDialog = new ProgressDialog
-                    {
-                        InfoLabel = { Text = "正在下载最新版本..." }
-                    };
-                    progressDialog.Show();
-
-                    client.DownloadProgressChanged += (s, ev) =>
-                    {
-                        progressDialog.ProgressBar.Value = ev.ProgressPercentage;
-                        progressDialog.InfoLabel.Text = $"已下载 {ev.BytesReceived / 1024} KB / {ev.TotalBytesToReceive / 1024} KB";
-                    };
-
-                    client.DownloadFileCompleted += (s, ev) =>
-                    {
-                        progressDialog.Close();
-                        if (ev.Error != null)
-                        {
-                            MessageBox.Show("下载失败：" + ev.Error.Message, "下载错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        }
-                        else
-                        {
-                            MessageBox.Show("下载完成，即将安装。", "下载完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                            System.Diagnostics.Process.Start(installerPath);
-                        }
-                    };
-
-                    await client.DownloadFileTaskAsync(new Uri(downloadUrl), installerPath);
+                    UpdateImageDisplay(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
                 }
             }
-            else
-            {
-                MessageBox.Show("下载文件出现异常。", "下载错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
         }
 
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+        private static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
 
-        private void TrayIcon_MouseClick(object sender, MouseEventArgs e)
+
+
+        public void PauseWallpaperChange()
         {
-            if (e.Button == MouseButtons.Left)
-            {
-                _ = SetWallpaperAsync();
-            }
+            Properties.Settings.Default.SelectedInterval = 0;
+            Properties.Settings.Default.Save();
+            timer.Stop();
+            menuHandler.UpdateFloatWindowButtons(false);
         }
 
-        private Icon LoadIconFromResource(string resourceName)
+        public void ResumeWallpaperChange()
         {
-            var assembly = Assembly.GetExecutingAssembly();
-            using (Stream resourceStream = assembly.GetManifestResourceStream(resourceName))
+            int savedInterval = Properties.Settings.Default.SelectedInterval;
+            if (savedInterval > 0)
             {
-                if (resourceStream == null)
-                {
-                    MessageBox.Show("Error loading icon resource.");
-                    return null;
-                }
-                Image image = Image.FromStream(resourceStream);
-                Bitmap bitmap = new Bitmap(image);
-                return Icon.FromHandle(bitmap.GetHicon());
-            }
-        }
-
-        private void ChangeWallpaperEvent(object sender, EventArgs e)
-        {
-            var clickedItem = sender as ToolStripMenuItem;
-            int selectedIndex = changeWallpaperMenu.DropDownItems.IndexOf(clickedItem);
-            Console.WriteLine($"selectedIndex: {selectedIndex},timesCount {times.Count()}");
-            if (selectedIndex < times.Count())
-            {
-                Properties.Settings.Default.SelectedInterval = times[selectedIndex];
+                // 恢复计时器间隔
+                Properties.Settings.Default.SelectedInterval = savedInterval;
                 Properties.Settings.Default.Save();
             }
-            foreach (ToolStripMenuItem item in clickedItem.GetCurrentParent().Items)
-            {
-                item.Checked = item == clickedItem;
-            }
-
-/*            if (clickedItem.Text == "立即更换")
-            {
-                _ = SetWallpaperAsync();
-                return;
-            }*/
-
-            int interval = (int)clickedItem.Tag;
-            if (interval > 0)
-            {
-                timer.Interval = interval;
-                timer.Start();
-                _ = SetWallpaperAsync();
-            }
-            else
-            {
-                timer.Stop();
-            }
+            timer.Start();
+            menuHandler.UpdateFloatWindowButtons(true);
         }
+
 
         private void InitializeTimer(int interval)
         {
-            if (timer == null)
+            if (interval > 0)
             {
-                timer = new Timer();
-                timer.Tick += async (sender, e) => await SetWallpaperAsync();
+                timer.Interval = interval;
+                timer.Tick += (sender, e) => ShowNextImage();
+                timer.Start();
             }
-            timer.Interval = interval;
-            timer.Start();
+
         }
 
-
-        private async void Logout(object sender, EventArgs e)
+        public void Logout(object sender, EventArgs e)
         {
             if (MessageBox.Show("您确定要登出吗？", "确认登出", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
-                await AttemptLogoutAsync();
-                loginMenuItem.Text = "登录";
-                loginMenuItem.Click -= Logout;
-                loginMenuItem.Click += Login;
+                AttemptLogout();
+                UpdateLoginMenuItem("登录", Login);
             }
         }
 
-        private async Task AttemptLogoutAsync()
+        private void AttemptLogout()
         {
             Properties.Settings.Default.UserId = 0;
             Properties.Settings.Default.Save();
-            
-            ClearCache();
+
+            //ClearCache();
             GlobalData.UserId = 0;
             GlobalData.LoginFlag = 0;
-            cacheIndex = 0;  // 重置cacheIndex
-            await InitializeAndSetWallpaperAsync();
+            //cacheIndex = 0;  // 重置cacheIndex
+            //await InitializeAndSetWallpaperAsync();
+            Task.Run(() => InitializeCarouselAsync());
         }
 
-        private void Login(object sender, EventArgs e)
+        public void Login(object sender, EventArgs e)
         {
             ShowLoginForm();
         }
 
         private async void LoginSuccess()
         {
-            loginMenuItem.Text = "登出";
-            loginMenuItem.Click -= Login;
-            loginMenuItem.Click += Logout;
-            ClearCache();
-            cacheIndex = 0;  // 重置cacheIndex
-            await InitializeAndSetWallpaperAsync();
+            UpdateLoginMenuItem("登出", Logout);
+            //ClearCache();
+            //cacheIndex = 0;  // 重置cacheIndex
+            //await InitializeAndSetWallpaperAsync();
+            await Task.Run(() => InitializeCarouselAsync());
         }
 
         private void ShowLoginForm()
@@ -324,345 +223,17 @@ namespace _92CloudWallpaper
             {
                 if (loginForm.ShowDialog() == DialogResult.OK)
                 {
-                    //GlobalData.UserId = loginForm.UserId; // 假设在登录表单中设置了UserId
                     LoginSuccess();
                 }
             }
         }
 
-        private async Task DownloadAsync()
+        private void UpdateLoginMenuItem(string text, EventHandler clickEvent)
         {
-            int pageIndex = GlobalData.PageIndex;
-            int pageSize = 8;
-            var apiHandler = new ApiRequestHandler();
-
-            var body = new SortedDictionary<string, object>
-            {
-#if DEBUG
-                { "userId" , 60587 }, //wk 8282414,zb 60587,lx 23,xj 44772
-#else
-                { "userId" , GlobalData.UserId },
-#endif
-                { "height" , screenHeight },
-                { "pageIndex", pageIndex },
-                { "pageSize" , pageSize },
-                { "width" , screenWidth },
-            };
-
-            var response = await apiHandler.SendApiRequestAsync(appImageUrl, body).ConfigureAwait(false);
-            Console.WriteLine(response);
-            List<string> urlList = new List<string>();
-            using (JsonDocument doc = JsonDocument.Parse(response))
-            {
-                JsonElement root = doc.RootElement;
-                JsonElement bodyElement = root.GetProperty("body");
-                JsonElement listElement = bodyElement.GetProperty("list");
-                Console.WriteLine($"list count {listElement.EnumerateArray().Count()},pagesize: {pageSize},pageIndex:{pageIndex}");
-                foreach (JsonElement l in listElement.EnumerateArray())
-                {
-                    String url = l.GetProperty("url").GetString();
-                    if (!urlList.Contains(url))
-                    {
-                        urlList.Add(url);
-                    }
-                    if (!syncWallpaperURLs.Contains(url))
-                    {
-                        syncWallpaperURLs.Add(url);
-                    }
-                }
-            }
-            Console.WriteLine($"syncWallpaperURLs--normal {syncWallpaperURLs.Count}");
-            string cacheDir = GetCacheDir();
-            if (urlList.Count == 0)
-            {
-                Console.WriteLine($"urlList.Count {urlList.Count}");
-
-
-                // 确保缓存目录存在
-                if (!Directory.Exists(cacheDir))
-                {
-                    Directory.CreateDirectory(cacheDir);
-                }
-
-                // 删除接口中没有返回的图片，并保留一周内的图片
-                var cachedFiles = Directory.GetFiles(cacheDir);
-                
-                var expiredFiles = cachedFiles
-                    .Where(f => (DateTime.Now - File.GetCreationTime(f)).TotalDays > CacheExpirationDays)
-                    .ToList();
-                
-                foreach (var cachedFile in cachedFiles) { 
-                    Console.WriteLine($"cachedFile : {cachedFile}");
-                }
-                List<string> newPaths = new List<string>();
-                Console.WriteLine($"syncWallpaperURLs.Count {syncWallpaperURLs.Count}");
-                foreach (var syncWallpaperURL in syncWallpaperURLs){
-                    //Console.WriteLine(syncWallpaperURL);
-                    var newPath = Path.Combine(cacheDir, Path.GetFileName(syncWallpaperURL));
-                    Console.WriteLine(newPath);
-                    if (!newPaths.Contains(newPath))
-                        newPaths.Add(newPath);
-                }
-                var filesToDelete = cachedFiles
-                    .Except(newPaths.ToArray())
-                    //.Concat(expiredFiles)
-                    .ToList();
-
-                foreach (var file in filesToDelete)
-                {
-                    Console.WriteLine($"fileToDel: {file}");
-                    if (File.Exists(file))
-                    {
-                        File.Delete(file);
-                    }
-                }
-
-
-                paths = newPaths;
-                syncWallpaperURLs.Clear();
-                pathsTemp.Clear();
-                GlobalData.PageIndex = 1;
-                //_ = SetWallpaperAsync();
-                //return;
-            }
-            else{ 
-
-                using (var downloader = new Downloader())
-                {
-                    await downloader.DownloadFilesAsync(urlList, filePaths =>
-                    {
-                        foreach (var path in downloader.GetFilePaths())
-                        {
-                            if (!pathsTemp.Contains(path))
-                            {
-                                pathsTemp.Add(path);
-                            }
-                        }
-    /*                    if (downloader.GetFilePaths().Count == pageSize)
-                        {
-                            GlobalData.PageIndex++;
-                        }
-                        else
-                        {
-                            GlobalData.PageIndex = 1;
-                        }*/
-                    });
-                }
-                CacheImages(pathsTemp);
-                GlobalData.PageIndex++;
-            }
-            
+            menuHandler.UpdateLoginMenuItem(text, clickEvent);
         }
 
-        private void CacheImages(List<string> paths)
-        {
-            string cacheDir = GetCacheDir();
-            if (!Directory.Exists(cacheDir))
-            {
-                Directory.CreateDirectory(cacheDir);
-            }
-            foreach (string path in paths)
-            {
-                string fileName = Path.GetFileName(path);
-                string destFile = Path.Combine(cacheDir, fileName);
-                if (!File.Exists(destFile))
-                {
-                    try {
-                        File.Copy(path, destFile);
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.Write(ex.Message);
-                    }
-                    
-                }
-            }
-        }
-
-        private string GetCacheDir()
-        {
-            string userId = GlobalData.UserId.ToString();
-            return Path.Combine(Path.GetTempPath(), "CloudWallpaper", userId);
-        }
-
-        private void ClearCache()
-        {
-            string cacheDir = GetCacheDir();
-            if (Directory.Exists(cacheDir))
-            {
-                var files = Directory.GetFiles(cacheDir);
-                foreach (var file in files)
-                {
-                    File.Delete(file);
-                }
-            }
-            string cacheTmpDir = Path.Combine(Path.GetTempPath(), "CloudWallpaper", "Temp");
-            if (Directory.Exists(cacheTmpDir))
-            {
-                var files = Directory.GetFiles(cacheTmpDir);
-                foreach (var file in files)
-                {
-                    File.Delete(file);
-                }
-            }
-        }
-
-        private async Task InitializeAndSetWallpaperAsync()
-        {
-            await DownloadAsync();
-            await SetWallpaperAsync();
-        }
-
-        private async Task SetWallpaperAsync()
-        {
-            LoadCachedImages();
-            Console.WriteLine($" paths.Count:{paths.Count} ||| cacheIndex: {cacheIndex}");
-            if (paths != null && paths.Count > 0)
-            {
-                if (cacheIndex >= paths.Count)
-                {
-                    cacheIndex = 0;
-                }
-
-                string localPath = paths[cacheIndex];
-                if (File.Exists(localPath))
-                {
-                    long fileSize = new FileInfo(localPath).Length;
-                    if (fileSize > 0)
-                    {
-                        //Console.WriteLine($" localPath:{localPath}");
-                        SetWallpaper(localPath);
-                        cacheIndex++;
-                        if (cacheIndex >= paths.Count)
-                        {
-                            cacheIndex = 0;
-                            await DownloadAsync();
-                        }
-                    }
-                }
-            }
-            else
-            {
-                await DownloadAsync();
-            }
-        }
-
-        private void LoadCachedImages()
-        {
-            string cacheDir = GetCacheDir();
-            if (Directory.Exists(cacheDir))
-            {
-                var cachedFiles = Directory.GetFiles(cacheDir).OrderBy(f => File.GetCreationTime(f)).ToList();
-                foreach (var file in cachedFiles)
-                {
-                    if (!paths.Contains(file))
-                    {
-                        paths.Add(file);
-                    }
-                }
-            }
-        }
-
-        private async Task DownloadAndSetWallpaper()
-        {
-            string localPath = Path.Combine(Path.GetTempPath(), "currentWallpaper.jpg");
-            var apiHandler = new ApiRequestHandler();
-
-            var body = new SortedDictionary<string, object>
-            {
-                { "userId" , GlobalData.UserId },
-                { "height" , screenHeight },
-                { "pageIndex", 1 },
-                { "pageSize" , 1 },
-                { "width" , screenWidth },
-            };
-
-            var response = await apiHandler.SendApiRequestAsync(appImageUrl, body);
-            string url;
-
-            using (JsonDocument doc = JsonDocument.Parse(response))
-            {
-                JsonElement root = doc.RootElement;
-                if (root.TryGetProperty("body", out JsonElement bodyElement) &&
-                bodyElement.TryGetProperty("list", out JsonElement listElement) &&
-                listElement.GetArrayLength() > 0)
-                {
-                    JsonElement l = listElement[0];
-                    url = l.GetProperty("url").GetString();
-                    using (WebClient client = new WebClient())
-                    {
-                        try
-                        {
-                            client.DownloadFile(url, localPath);
-                            SetWallpaper(localPath);
-                        }
-                        catch (Exception ex)
-                        {
-                            MessageBox.Show($"An error occurred: {ex.Message}.URL{url}");
-                        }
-                    }
-                }
-                else
-                {
-                    GlobalData.PageIndex = 1;
-                }
-            }
-        }
-
-        private void DownloadAndSetWallpaper(string url)
-        {
-            string localPath = Path.Combine(Path.GetTempPath(), "currentWallpaper.jpg");
-            using (WebClient client = new WebClient())
-            {
-                try
-                {
-                    client.DownloadFile(url, localPath);
-                    SetWallpaper(localPath);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"An error occurred: {ex.Message}");
-                }
-            }
-        }
-
-        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
-        private static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
-
-        private void ToggleAutoStart(object sender, EventArgs e)
-        {
-            if (autoStartMenuItem.Checked)
-            {
-                SetApplicationAutoStart(true);
-            }
-            else
-            {
-                SetApplicationAutoStart(false);
-            }
-        }
-
-        private void SetApplicationAutoStart(bool enable)
-        {
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true))
-            {
-                if (enable)
-                {
-                    key.SetValue(Application.ProductName, Application.ExecutablePath);
-                }
-                else
-                {
-                    key.DeleteValue(Application.ProductName, false);
-                }
-            }
-        }
-
-        private bool IsApplicationAutoStarting()
-        {
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false))
-            {
-                return key.GetValue(Application.ProductName) != null;
-            }
-        }
+       
 
         private void SetWallpaper(string path)
         {
@@ -677,13 +248,6 @@ namespace _92CloudWallpaper
             Visible = false; // 隐藏窗体
             ShowInTaskbar = false; // 移除任务栏图标
             base.OnLoad(e);
-        }
-
-        public enum WallpaperStyle : int
-        {
-            Tiled,
-            Centered,
-            Stretched
         }
     }
 }
