@@ -44,11 +44,7 @@ public class ImageCacheManager
         var apiHandler = new ApiRequestHandler();
         var body = new SortedDictionary<string, object>
         {
-#if DEBUG
-            { "userId", GlobalData.UserId }, //wk 8282414,zb 60587,lx 23,xj 44772
-#else
             { "userId", GlobalData.UserId },
-#endif
             { "height", screenHeight },
             { "pageIndex", pageIndex },
             { "pageSize", pageSize },
@@ -61,6 +57,7 @@ public class ImageCacheManager
         while (morePages)
         {
             var response = await apiHandler.SendApiRequestAsync(appImageUrl, body).ConfigureAwait(false);
+            Console.WriteLine(response);
             var newImageInfos = ParseImageInfo(response);
 
             if (newImageInfos.Count == 0)
@@ -100,7 +97,9 @@ public class ImageCacheManager
                 Description = element.GetProperty("content").GetString(),
                 Location = element.GetProperty("addr").GetString(),
                 ShootTime = element.GetProperty("shootTime").GetString(),
-                ShootAddr = element.GetProperty("shootAddr").GetString()
+                ShootAddr = element.GetProperty("shootAddr").GetString(),
+                AuthorUrl = element.GetProperty("authorUrl").GetString(),
+                AuthorName = element.GetProperty("authorName").GetString()
             };
             imageInfos.Add(imageInfo);
         }
@@ -117,7 +116,7 @@ public class ImageCacheManager
             if (File.Exists(filePath) && new FileInfo(filePath).Length > 0)
             {
                 ImageCache[imageInfo.Url] = new ImageCacheItem { FilePath = filePath, Info = imageInfo };
-                SaveMetadata(imageInfo.Url, filePath, imageInfo.Description, imageInfo.Location, imageInfo.ShootTime, imageInfo.ShootAddr);
+                SaveMetadata(imageInfo.Url, filePath, imageInfo.Description, imageInfo.Location, imageInfo.ShootTime, imageInfo.ShootAddr, imageInfo.AuthorUrl, imageInfo.AuthorName);
                 return;
             }
 
@@ -126,7 +125,7 @@ public class ImageCacheManager
             if (downloadSuccess)
             {
                 ImageCache[imageInfo.Url] = new ImageCacheItem { FilePath = filePath, Info = imageInfo };
-                SaveMetadata(imageInfo.Url, filePath, imageInfo.Description, imageInfo.Location, imageInfo.ShootTime, imageInfo.ShootAddr);
+                SaveMetadata(imageInfo.Url, filePath, imageInfo.Description, imageInfo.Location, imageInfo.ShootTime, imageInfo.ShootAddr, imageInfo.AuthorUrl, imageInfo.AuthorName);
             }
         }
     }
@@ -200,10 +199,48 @@ public class ImageCacheManager
                                         Description TEXT,
                                         Location TEXT,
                                         ShootTime TEXT,
-                                        ShootAddr TEXT)";
+                                        ShootAddr TEXT,
+                                        AuthorUrl TEXT,
+                                        AuthorName TEXT)";
             using (var command = new SQLiteCommand(createTableQuery, connection))
             {
                 command.ExecuteNonQuery();
+            }
+
+            // Check and add missing columns
+            var columnCheckQueries = new List<string>
+            {
+                "PRAGMA table_info(ImageCache)"
+            };
+
+            using (var command = new SQLiteCommand(columnCheckQueries[0], connection))
+            {
+                using (var reader = command.ExecuteReader())
+                {
+                    var columns = new HashSet<string>();
+                    while (reader.Read())
+                    {
+                        columns.Add(reader["name"].ToString());
+                    }
+
+                    if (!columns.Contains("AuthorUrl"))
+                    {
+                        string addColumnQuery = "ALTER TABLE ImageCache ADD COLUMN AuthorUrl TEXT";
+                        using (var addColumnCommand = new SQLiteCommand(addColumnQuery, connection))
+                        {
+                            addColumnCommand.ExecuteNonQuery();
+                        }
+                    }
+
+                    if (!columns.Contains("AuthorName"))
+                    {
+                        string addColumnQuery = "ALTER TABLE ImageCache ADD COLUMN AuthorName TEXT";
+                        using (var addColumnCommand = new SQLiteCommand(addColumnQuery, connection))
+                        {
+                            addColumnCommand.ExecuteNonQuery();
+                        }
+                    }
+                }
             }
 
             string createPositionTableQuery = @"CREATE TABLE IF NOT EXISTS CarouselPosition (
@@ -239,6 +276,8 @@ public class ImageCacheManager
                         var location = reader["Location"].ToString();
                         var shootTime = reader["ShootTime"].ToString();
                         var shootAddr = reader["ShootAddr"].ToString();
+                        var authorUrl = reader["AuthorUrl"].ToString();
+                        var authorName = reader["AuthorName"].ToString();
 
                         if (File.Exists(filePath))
                         {
@@ -248,7 +287,9 @@ public class ImageCacheManager
                                 Description = description,
                                 Location = location,
                                 ShootTime = shootTime,
-                                ShootAddr = shootAddr
+                                ShootAddr = shootAddr,
+                                AuthorUrl = authorUrl,
+                                AuthorName = authorName
                             };
                             ImageCache[url] = new ImageCacheItem { FilePath = filePath, Info = imageInfo };
                             ImageInfos.Add(imageInfo);
@@ -259,13 +300,13 @@ public class ImageCacheManager
         }
     }
 
-    private void SaveMetadata(string url, string filePath, string description, string location, string shootTime, string shootAddr)
+    private void SaveMetadata(string url, string filePath, string description, string location, string shootTime, string shootAddr, string authorUrl, string authorName)
     {
         using (var connection = new SQLiteConnection($"Data Source={databaseFilePath};Version=3;"))
         {
             connection.Open();
-            string insertQuery = @"REPLACE INTO ImageCache (Url, FilePath, Description, Location, ShootTime, ShootAddr)
-                                   VALUES (@url, @filePath, @description, @location, @shootTime, @shootAddr)";
+            string insertQuery = @"REPLACE INTO ImageCache (Url, FilePath, Description, Location, ShootTime, ShootAddr, AuthorUrl, AuthorName)
+                                   VALUES (@url, @filePath, @description, @location, @shootTime, @shootAddr, @authorUrl, @authorName)";
             using (var command = new SQLiteCommand(insertQuery, connection))
             {
                 command.Parameters.AddWithValue("@url", url);
@@ -274,6 +315,8 @@ public class ImageCacheManager
                 command.Parameters.AddWithValue("@location", location);
                 command.Parameters.AddWithValue("@shootTime", shootTime);
                 command.Parameters.AddWithValue("@shootAddr", shootAddr);
+                command.Parameters.AddWithValue("@authorUrl", authorUrl);
+                command.Parameters.AddWithValue("@authorName", authorName);
                 command.ExecuteNonQuery();
             }
         }
@@ -334,6 +377,8 @@ public class ImageCacheManager
         public string Location { get; set; }
         public string ShootTime { get; set; }
         public string ShootAddr { get; set; }
+        public string AuthorUrl { get; set; }
+        public string AuthorName { get; set; }
     }
 
     public class ImageCacheItem

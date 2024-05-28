@@ -10,15 +10,15 @@ namespace _92CloudWallpaper
         private Timer timer;
         public int defaultInterval = 600000;
         public int savedInterval { get; set; } = 600000; // 默认值为10分钟
-        public static readonly string CurrentVersion = "v0.3.0"; // 当前版本号
-        //private WallpaperControlWindow wallpaperControlWindow;
+        public static readonly string CurrentVersion = "v0.3.1"; // 当前版本号
         //private bool isPaused = false;
         private MenuHandler menuHandler;
         private SoftwareUpdater softwareUpdater;
         private ImageCacheManager cacheManager;
+        private WallpaperControlWindow wallpaperControlWindow;
 
-        //public int SavedInterval { get { return savedInterval; } }
-        //public int SavedInterval { get; set; } = 600000; // 默认值为10分钟
+
+        public ImageCacheManager.ImageInfo currentImageInfo { get; set; } // 定义当前图片信息的成员变量
 
         public Main()
         {
@@ -26,48 +26,44 @@ namespace _92CloudWallpaper
             {
                 cacheManager = new ImageCacheManager();
                 savedInterval = Properties.Settings.Default.SelectedInterval;
-                //InitializeComponent();
                 trayIcon = new NotifyIcon();
                 timer = new Timer();
-                menuHandler = new MenuHandler(this, trayIcon, timer);
+                menuHandler = new MenuHandler(this, trayIcon, timer); // 先初始化
                 softwareUpdater = new SoftwareUpdater(this);
-                //if (Properties.Settings.Default.IsFloatWindowVisible)
-                //{
-                //    ShowFloatWindow();
-                //}
+                wallpaperControlWindow = new WallpaperControlWindow(this, menuHandler);
+                
+
                 InitializeTimer(savedInterval);
 
-                //_ = InitializeAndSetWallpaperAsync();  // 初始化时进行缓存并设置壁纸
                 Task.Run(() => InitializeCarouselAsync());
-
-                //ShowWallpaperControlWindow();
             }
             catch (Exception ex)
             {
                 Logger.LogError("Error during initialization", ex);
             }
         }
-        private void ShowFloatWindow()
-        {
-            WallpaperControlWindow floatWindow = new WallpaperControlWindow(this, menuHandler);
-            floatWindow.Show();
-        }
+
         private async Task InitializeCarouselAsync()
         {
             await cacheManager.LoadImagesAsync();
             if (cacheManager.ImageInfos.Count > 0 && cacheManager.ImageCache.ContainsKey(cacheManager.ImageInfos[cacheManager.CurrentIndex].Url))
             {
-                UpdateImageDisplay(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
+                UpdateImageDisplayAsync(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
                 timer.Start();
             }
         }
-        private void UpdateImageDisplay(ImageCacheManager.ImageCacheItem cacheItem)
+
+        private void  UpdateImageDisplayAsync(ImageCacheManager.ImageCacheItem cacheItem)
         {
+            // 打印当前线程ID，用于调试
+            Console.WriteLine($"UpdateImageDisplay Thread: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+
             try
             {
-
+                currentImageInfo = cacheItem.Info;
                 SetWallpaper(cacheItem.FilePath);
                 cacheManager.SaveCurrentPosition(cacheManager.CurrentIndex);
+                
             }
             catch (Exception ex)
             {
@@ -75,14 +71,13 @@ namespace _92CloudWallpaper
                 Console.WriteLine($"Failed to load image from {cacheItem.FilePath}. Exception: {ex.Message}");
             }
         }
-    
+
         public void SetWallpaperChangeInterval(int interval)
         {
             savedInterval = interval;
             Properties.Settings.Default.SelectedInterval = interval;
             Properties.Settings.Default.Save();
         }
-        
 
         public async void CheckForUpdate(object sender, EventArgs e)
         {
@@ -98,35 +93,30 @@ namespace _92CloudWallpaper
         {
             menuHandler.SetVersionMenuItemClickEvent(eventHandler);
         }
-        private void OnTimedEvent(object sender, EventArgs e)
-        {
-            ShowNextImage();
-        }
 
-        private void NextButton_Click(object sender, EventArgs e)
-        {
-            ShowNextImage();
-        }
 
-        private void PrevButton_Click(object sender, EventArgs e)
-        {
-            ShowPrevImage();
-        }
-
-        public void ShowNextImage()
+        public async void ShowNextImage()
         {
             if (cacheManager.ImageInfos.Count > 0)
             {
+                Console.WriteLine($"cacheManager.CurrentIndex : {cacheManager.CurrentIndex}");
                 cacheManager.CurrentIndex = (cacheManager.CurrentIndex + 1) % cacheManager.ImageInfos.Count;
                 if (cacheManager.ImageCache.ContainsKey(cacheManager.ImageInfos[cacheManager.CurrentIndex].Url))
                 {
-                    UpdateImageDisplay(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
+                   UpdateImageDisplayAsync(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
                 }
 
                 // 仅在最后一张时调用同步方法
                 if (cacheManager.CurrentIndex == cacheManager.ImageInfos.Count - 1)
                 {
-                    Task.Run(() => cacheManager.LoadImagesAsync());
+                    await cacheManager.LoadImagesAsync();
+                }
+                
+                //if (wallpaperControlWindow != null)
+                {
+                    // 确保在主线程上更新 UI
+                    
+                    //await wallpaperControlWindow.Dispatcher.InvokeAsync(() => wallpaperControlWindow.DisplayImageInfo());
                 }
             }
         }
@@ -138,15 +128,13 @@ namespace _92CloudWallpaper
                 cacheManager.CurrentIndex = (cacheManager.CurrentIndex - 1 + cacheManager.ImageInfos.Count) % cacheManager.ImageInfos.Count;
                 if (cacheManager.ImageCache.ContainsKey(cacheManager.ImageInfos[cacheManager.CurrentIndex].Url))
                 {
-                    UpdateImageDisplay(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
+                    UpdateImageDisplayAsync(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
                 }
             }
         }
 
         [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
         private static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
-
-
 
         public void PauseWallpaperChange()
         {
@@ -169,16 +157,15 @@ namespace _92CloudWallpaper
             menuHandler.UpdateFloatWindowButtons(true);
         }
 
-
         private void InitializeTimer(int interval)
         {
             if (interval > 0)
             {
+                Console.WriteLine($"interval {interval}");
                 timer.Interval = interval;
                 timer.Tick += (sender, e) => ShowNextImage();
                 timer.Start();
             }
-
         }
 
         public void Logout(object sender, EventArgs e)
@@ -232,8 +219,6 @@ namespace _92CloudWallpaper
         {
             menuHandler.UpdateLoginMenuItem(text, clickEvent);
         }
-
-       
 
         private void SetWallpaper(string path)
         {

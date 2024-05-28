@@ -164,47 +164,46 @@ public class WeatherService
         {"395", "HeavySnowShowers"}
     };
 
-    static readonly Dictionary<string, string> WEATHER_SYMBOL = new Dictionary<string, string>
+    private static readonly Dictionary<string, string> WEATHER_SYMBOL = new Dictionary<string, string>
     {
         {"Unknown", "✨"},
         {"Cloudy", "☁️"},
-        {"Fog", "🌫"},
-        {"HeavyRain", "🌧"},
-        {"HeavyShowers", "🌧"},
+        {"Fog", "🌫️"},
+        {"HeavyRain", "🌧️"},
+        {"HeavyShowers", "🌧️"},
         {"HeavySnow", "❄️"},
         {"HeavySnowShowers", "❄️"},
-        {"LightRain", "🌦"},
-        {"LightShowers", "🌦"},
-        {"LightSleet", "🌧"},
-        {"LightSleetShowers", "🌧"},
-        {"LightSnow", "🌨"},
-        {"LightSnowShowers", "🌨"},
+        {"LightRain", "🌦️"},
+        {"LightShowers", "🌦️"},
+        {"LightSleet", "🌧️"},
+        {"LightSleetShowers", "🌧️"},
+        {"LightSnow", "🌨️"},
+        {"LightSnowShowers", "🌨️"},
         {"PartlyCloudy", "⛅️"},
-        {"Sunny", "☀️"},
-        {"ThunderyHeavyRain", "🌩"},
-        {"ThunderyShowers", "⛈"},
-        {"ThunderySnowShowers", "⛈"},
+        {"Sunny", "🌞"},
+        {"ThunderyHeavyRain", "🌩️"},
+        {"ThunderyShowers", "⛈️"},
+        {"ThunderySnowShowers", "⛈️"},
         {"VeryCloudy", "☁️"}
     };
-
     static readonly Dictionary<string, string> WIND_DIRECTION_MAP = new Dictionary<string, string>
     {
-        {"N", "↑"},
-        {"NNE", "↗"},
-        {"NE", "↗"},
-        {"ENE", "↗"},
-        {"E", "→"},
-        {"ESE", "↘"},
-        {"SE", "↘"},
-        {"SSE", "↘"},
-        {"S", "↓"},
-        {"SSW", "↙"},
-        {"SW", "↙"},
-        {"WSW", "↙"},
-        {"W", "←"},
-        {"WNW", "↖"},
-        {"NW", "↖"},
-        {"NNW", "↖"}
+        {"N", "↓"},
+        {"NNE", "↙"},
+        {"NE", "↙"},
+        {"ENE", "↙"},
+        {"E", "←"},
+        {"ESE", "↖"},
+        {"SE", "↖"},
+        {"SSE", "↖"},
+        {"S", "↑"},
+        {"SSW", "↗"},
+        {"SW", "↗"},
+        {"WSW", "↗"},
+        {"W", "→"},
+        {"WNW", "↘"},
+        {"NW", "↘"},
+        {"NNW", "↘"}
     };
 }
 

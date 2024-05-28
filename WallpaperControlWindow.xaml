@@ -2,21 +2,37 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="WallpaperControlWindow" Height="160" Width="300"
-        WindowStyle="None" AllowsTransparency="True" Background="Transparent" 
+        WindowStyle="None" AllowsTransparency="True" ResizeMode="NoResize" Background="Transparent"
         Loaded="Window_Loaded">
     <Window.Resources>
         <!-- 定义按钮的样式，确保没有MouseOver的视觉变化 -->
         <Style TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="BorderBrush" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="Black"/>
+                    <Setter Property="Cursor" Value="Hand"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
     </Window.Resources>
     <Grid>
         <Border Background="#AAFFFFFF" CornerRadius="10" Padding="10">
             <Grid>
-                <!-- 定义行和列 -->
                 <Grid.RowDefinitions>
-
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
@@ -27,61 +43,92 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- 布局元素 -->
-
-                <Border Grid.Row="1" Grid.Column="0"  Width="80" Height="32">
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <Button x:Name="PrevButton" Grid.Column="0" Width="32" Click="PrevButton_Click">
-                            <Image Source="/Resources/prev_icon.png" />
+                <Border Grid.Row="1" Grid.Column="0" Width="80" Height="30">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left">
+                        <Button x:Name="PrevButton" Grid.Column="0" Width="30" Click="PrevButton_Click">
+                            <Image Source="/Resources/prev_icon.png"/>
                         </Button>
                         <Button x:Name="PrevLabel" VerticalAlignment="Center" Click="PrevButton_Click">上一张</Button>
                     </StackPanel>
                 </Border>
-                <Border Grid.Row="1" Grid.Column="2"  Width="80" Height="32">
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Border Grid.Row="1" Grid.Column="2" Width="80" Height="30">
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
                         <Button x:Name="NextLabel" VerticalAlignment="Center" Click="NextButton_Click">下一张</Button>
-                        <Button x:Name="NextButton" Grid.Column="2" Width="32" Click="NextButton_Click">
-                            <Image Source="/Resources/next_icon.png" />
+                        <Button x:Name="NextButton" Grid.Column="2" Width="30" Click="NextButton_Click">
+                            <Image Source="/Resources/next_icon.png"/>
                         </Button>
                     </StackPanel>
                 </Border>
-
-                <Border Grid.Row="1" Grid.Column="1"  Width="32" Height="32" HorizontalAlignment="Center">
+                <Border Grid.Row="1" Grid.Column="1" Width="30" Height="30" HorizontalAlignment="Center">
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <Button x:Name="PauseButton" Width="32" Click="PauseButton_Click">
-                            <Image Source="/Resources/pause_icon.png" />
+                        <Button x:Name="PauseButton" Width="30" Click="PauseButton_Click">
+                            <Image Source="/Resources/pause_icon.png"/>
                         </Button>
-                        <Button x:Name="PlayButton" Width="32" Click="PlayButton_Click" Visibility="Collapsed">
-                            <Image Source="/Resources/play_icon.png" />
+                        <Button x:Name="PlayButton" Width="30" Click="PlayButton_Click" Visibility="Collapsed">
+                            <Image Source="/Resources/play_icon.png"/>
                         </Button>
                     </StackPanel>
                 </Border>
-                <Border Name="SpaceInfo" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Height="90">
-                    <StackPanel Orientation="Horizontal">
-                        <Grid Background="#30000000" >
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="20"/>
-                                <RowDefinition Height="70"/>
-                                
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="65"/>
-                                <ColumnDefinition Width="75"/>
-                            </Grid.ColumnDefinitions>
+                <Border Name="SpaceInfo" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Height="100">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
 
-                            <!-- 第一行，占2列，文字中间对齐 -->
-                            <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="" Name="CityLabel" 
-                   HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White"/>
+                        <!-- 天气  -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal">
+                            <Grid Background="#30000000">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="25"/>
+                                    <RowDefinition Height="65"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="55"/>
+                                    <ColumnDefinition Width="80"/>
+                                </Grid.ColumnDefinitions>
+                                <!-- 第一行，占2列，文字中间对齐 -->
+                                <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="" Name="CityLabel"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="Bold"/>
+                                <!-- 第二行第一列，占3行，文字中间对齐 -->
+                                <TextBlock Grid.Row="1" Grid.RowSpan="2" Grid.Column="0" Text="" Width="55" Name="WeatherIcon"
+                                           HorizontalAlignment="Center" VerticalAlignment="Top" Foreground="White" FontSize="40"
+                                           FontFamily="Segoe UI Emoji" Height="70"/>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Text="" Width="75" Name="WeatherText"
+                                           HorizontalAlignment="Left" VerticalAlignment="Top" Foreground="White" Height="70"/>
+                            </Grid>
+                        </StackPanel>
 
-                            <!-- 第二行第一列，占3行，文字中间对齐 -->
-                            <TextBlock Grid.Row="1" Grid.RowSpan="2" Grid.Column="0" Text="" Width="65" Name="WeatherIcon"
-                   HorizontalAlignment="Center" VerticalAlignment="Top" Foreground="White" FontSize="48"/>
-                            <TextBlock Grid.Row="1"  Grid.Column="1" Text="" Width="75" Name="WeatherText"
-HorizontalAlignment="Left" VerticalAlignment="Top" Foreground="White" Height="70"/>
-
-
-                        </Grid>
-                    
-                    </StackPanel>
+                        <!-- 图片信息 -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal">
+                            <Grid Background="#30000000" Margin="10,0,0,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="28"/>
+                                    <RowDefinition Name="ContentRow" Height="25"/>
+                                    <RowDefinition Height="25"/>
+                                    <RowDefinition Height="25"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40"/>
+                                    <ColumnDefinition Width="95"/>
+                                </Grid.ColumnDefinitions>
+                                <!-- 第一行，占2列，居中。里面两个元素一个图片，旁边是文字 -->
+                                <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Left">
+                                    <Image x:Name="AuthorUrl" Width="22" Height="25" Margin="3,3,3,3"/>
+                                    <TextBlock x:Name="AuthorName" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="Bold"/>
+                                </StackPanel>
+                                <!-- 第二行，占两列，居左。里面是文字 -->
+                                <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" x:Name="PicContent" Text="" Foreground="White" Margin="3,0"/>
+                                <!-- 第三行，第一列：文字：时间，第二列：时间 -->
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="" x:Name="ShootTime_Label" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Text="" x:Name="ShootTime" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                <!-- 第四行，第一列：文字：地点，第二列：地点 -->
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="" x:Name="ShootAddr_Label" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="" x:Name="ShootAddr" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
                 </Border>
             </Grid>
         </Border>

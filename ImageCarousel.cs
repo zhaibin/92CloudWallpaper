@@ -47,7 +47,7 @@ public class ImageCarousel : Form
         await cacheManager.LoadImagesAsync();
         if (cacheManager.ImageInfos.Count > 0 && cacheManager.ImageCache.ContainsKey(cacheManager.ImageInfos[cacheManager.CurrentIndex].Url))
         {
-            UpdateImageDisplay(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
+            //UpdateImageDisplay(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
             //timer.Start();
         }
     }

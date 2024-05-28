@@ -12,6 +12,7 @@ namespace _92CloudWallpaper
         private readonly NotifyIcon trayIcon;
         private readonly Timer timer;
         private WallpaperControlWindow floatWindow;
+        
         private ToolStripMenuItem loginMenuItem;
         private ToolStripMenuItem autoStartMenuItem;
         private ToolStripMenuItem floatWindowMenuItem;
@@ -26,6 +27,9 @@ namespace _92CloudWallpaper
             this.mainForm = mainForm;
             this.trayIcon = trayIcon;
             this.timer = timer;
+            // 初始化 WallpaperControlWindow
+            floatWindow = new WallpaperControlWindow(mainForm, this);
+
             this.previousInterval = mainForm.savedInterval;
             InitializeTrayIcon();
 
@@ -102,6 +106,8 @@ namespace _92CloudWallpaper
         public void ChangeWallpaperEvent(object sender, EventArgs e)
         {
             var clickedItem = sender as ToolStripMenuItem;
+            if (clickedItem == null) return;
+
             int selectedIndex = changeWallpaperMenu.DropDownItems.IndexOf(clickedItem);
             if (selectedIndex < times.Length)
             {
@@ -133,20 +139,15 @@ namespace _92CloudWallpaper
 
         private void ToggleAutoStart(object sender, EventArgs e)
         {
-            if (autoStartMenuItem.Checked)
-            {
-                SetApplicationAutoStart(true);
-            }
-            else
-            {
-                SetApplicationAutoStart(false);
-            }
+            SetApplicationAutoStart(autoStartMenuItem.Checked);
         }
 
         private void SetApplicationAutoStart(bool enable)
         {
             using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true))
             {
+                if (key == null) return;
+
                 if (enable)
                 {
                     key.SetValue(Application.ProductName, Application.ExecutablePath);
@@ -162,7 +163,7 @@ namespace _92CloudWallpaper
         {
             using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false))
             {
-                return key.GetValue(Application.ProductName) != null;
+                return key?.GetValue(Application.ProductName) != null;
             }
         }
 
@@ -182,9 +183,10 @@ namespace _92CloudWallpaper
 
         private void ShowFloatWindow()
         {
-            if (floatWindow == null || !floatWindow.IsVisible)
+            //if (floatWindow == null || !floatWindow.IsVisible)
             {
                 floatWindow = new WallpaperControlWindow(mainForm, this);
+                
                 floatWindow.Show();
                 floatWindowMenuItem.Checked = true;
             }
@@ -192,16 +194,11 @@ namespace _92CloudWallpaper
 
         private void HideFloatWindow()
         {
-            if (floatWindow != null && floatWindow.IsVisible)
+            //if (floatWindow != null && floatWindow.IsVisible)
             {
                 floatWindow.Close();
                 floatWindowMenuItem.Checked = false;
             }
-        }
-
-        private bool IsFloatWindowShow()
-        {
-            return Properties.Settings.Default.IsFloatWindowVisible;
         }
 
         public void UpdateLoginMenuItem(string text, EventHandler clickEvent)
@@ -225,10 +222,7 @@ namespace _92CloudWallpaper
 
         public void UpdateFloatWindowButtons(bool isPlaying)
         {
-            if (floatWindow != null)
-            {
-                floatWindow.UpdatePlayPauseButtons(isPlaying);
-            }
+            floatWindow?.UpdatePlayPauseButtons(isPlaying);
         }
 
         public void ResumeWallpaperChange()
@@ -262,14 +256,11 @@ namespace _92CloudWallpaper
                 item.Checked = (int)item.Tag == interval;
             }
         }
+
         private void ApplicationExit()
         {
-            if (floatWindow.IsVisible)
-            {
-                floatWindow.Close();
-            }
+            floatWindow?.Close();
             Application.Exit();
-            
         }
     }
 }
