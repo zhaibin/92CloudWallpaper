@@ -70,11 +70,12 @@ public class WeatherService
             WindSpeed = weatherResult.weatherData.windSpeed,
             WindDirection = weatherResult.weatherData.windDirection,
             Visibility = weatherResult.weatherData.visibility,
-            UVIndex = weatherResult.weatherData.uvIndex
+            UVIndex = weatherResult.weatherData.uvIndex,
+            LocalObsDateTime = weatherResult.weatherData.localObsDateTime
         };
     }
 
-    private async Task<(int status, string statusDesc, (string temperature, string feelsLikeTemperature, string weatherDescription, string weatherIcon, string windSpeed, string windDirection, string visibility, string uvIndex) weatherData)> GetWeatherInfoAsync(string city)
+    private async Task<(int status, string statusDesc, (string temperature, string feelsLikeTemperature, string weatherDescription, string weatherIcon, string windSpeed, string windDirection, string visibility, string uvIndex, string localObsDateTime) weatherData)> GetWeatherInfoAsync(string city)
     {
         try
         {
@@ -103,12 +104,12 @@ public class WeatherService
             var windDirection = WIND_DIRECTION_MAP.ContainsKey(windDir) ? WIND_DIRECTION_MAP[windDir] : windDir;
             var visibility = currentCondition.GetProperty("visibility").GetString() + " km";
             var uvIndex = currentCondition.GetProperty("uvIndex").GetString();
-
-            return (1, "正确", (tempC + "°C", feelsLikeC + "°C", weatherDesc, weatherIcon, windSpeed, windDirection, visibility, uvIndex));
+            var localObsDateTime = currentCondition.GetProperty("localObsDateTime").GetString();
+            return (1, "正确", (tempC + "°C", feelsLikeC + "°C", weatherDesc, weatherIcon, windSpeed, windDirection, visibility, uvIndex, localObsDateTime));
         }
         catch
         {
-            return (3, "没有获得天气信息", (null, null, null, null, null, null, null, null));
+            return (3, "没有获得天气信息", (null, null, null, null, null, null, null, null,null));
         }
     }
 
@@ -220,4 +221,5 @@ public class WeatherResult
     public string Visibility { get; set; }
     public string UVIndex { get; set; }
     public string FeelsLikeTemperature { get; set; }
+    public string LocalObsDateTime { get; set; }
 }

@@ -1,8 +1,9 @@
-﻿using System;
+﻿using Microsoft.Win32;
 using System.Drawing;
-using System.Linq;
 using System.Windows.Forms;
-using Microsoft.Win32;
+using System;
+using System.Diagnostics;
+
 
 namespace _92CloudWallpaper
 {
@@ -12,13 +13,16 @@ namespace _92CloudWallpaper
         private readonly NotifyIcon trayIcon;
         private readonly Timer timer;
         private WallpaperControlWindow floatWindow;
-        
+
         private ToolStripMenuItem loginMenuItem;
         private ToolStripMenuItem autoStartMenuItem;
         private ToolStripMenuItem floatWindowMenuItem;
         private ToolStripMenuItem changeWallpaperMenu;
         private ToolStripMenuItem versionMenuItem;
-        private readonly int[] times = { 0, 60000, 600000, 1800000, 3600000, 86400000 }; // 修改1分钟的时间为60000
+        private ToolStripMenuItem settingsMenu;
+        private ToolStripMenuItem clearCacheMenuItem;
+        private ToolStripMenuItem manageWallpapersMenuItem;
+        private readonly int[] times = { 0, 60000, 600000, 1800000, 3600000, 86400000 };
         private readonly string[] intervals = { "暂停", "1 分钟", "10 分钟", "半小时", "1 小时", "1 天" };
         private int previousInterval;
 
@@ -27,13 +31,11 @@ namespace _92CloudWallpaper
             this.mainForm = mainForm;
             this.trayIcon = trayIcon;
             this.timer = timer;
-            // 初始化 WallpaperControlWindow
             floatWindow = new WallpaperControlWindow(mainForm, this);
 
             this.previousInterval = mainForm.savedInterval;
             InitializeTrayIcon();
 
-            // 根据保存的状态初始化悬浮窗
             if (Properties.Settings.Default.IsFloatWindowVisible)
             {
                 ShowFloatWindow();
@@ -52,19 +54,27 @@ namespace _92CloudWallpaper
             {
                 var menuItem = new ToolStripMenuItem(intervals[i], null, ChangeWallpaperEvent);
                 if (i < times.Length) menuItem.Tag = times[i];
-                menuItem.Checked = i == Array.IndexOf(times, mainForm.savedInterval); // 根据保存的索引设置选中状态
+                menuItem.Checked = i == Array.IndexOf(times, mainForm.savedInterval);
                 changeWallpaperMenu.DropDownItems.Add(menuItem);
             }
 
             if (Properties.Settings.Default.UserId == 0)
             {
                 loginMenuItem = new ToolStripMenuItem("登录", null, mainForm.Login);
+                trayMenu.Items.Add(loginMenuItem);
             }
             else
             {
                 loginMenuItem = new ToolStripMenuItem("登出", null, mainForm.Logout);
+                trayMenu.Items.Add(loginMenuItem);
+                manageWallpapersMenuItem = new ToolStripMenuItem("管理壁纸");
+                manageWallpapersMenuItem.DropDownItems.Add(new ToolStripMenuItem("发布壁纸", null, (sender, e) => Process.Start(new ProcessStartInfo("https://creators-pc-cn.levect.com/Content/publishworks") { UseShellExecute = true })));
+                manageWallpapersMenuItem.DropDownItems.Add(new ToolStripMenuItem("管理壁纸", null, (sender, e) => Process.Start(new ProcessStartInfo("https://creators-pc-cn.levect.com/Content/workmanagement") { UseShellExecute = true })));
+                trayMenu.Items.Add(manageWallpapersMenuItem);
             }
-            trayMenu.Items.Add(loginMenuItem);
+            
+
+            settingsMenu = new ToolStripMenuItem("软件设置");
 
             autoStartMenuItem = new ToolStripMenuItem("开机启动", null, ToggleAutoStart)
             {
@@ -78,14 +88,19 @@ namespace _92CloudWallpaper
                 Checked = Properties.Settings.Default.IsFloatWindowVisible
             };
 
-            trayMenu.Items.Add(autoStartMenuItem);
-            trayMenu.Items.Add(floatWindowMenuItem);
+            clearCacheMenuItem = new ToolStripMenuItem("清理缓存", null, ClearCache);
+
+            settingsMenu.DropDownItems.Add(autoStartMenuItem);
+            settingsMenu.DropDownItems.Add(floatWindowMenuItem);
+            settingsMenu.DropDownItems.Add(clearCacheMenuItem);
+
+            trayMenu.Items.Add(settingsMenu);
             trayMenu.Items.Add(changeWallpaperMenu);
             versionMenuItem = new ToolStripMenuItem($"版本 {Main.CurrentVersion}");
             versionMenuItem.Click += mainForm.CheckForUpdate;
 
             trayMenu.Items.Add(versionMenuItem);
-            trayMenu.Items.Add("退出程序", null, (sender, e) => ApplicationExit());
+            trayMenu.Items.Add("退出软件", null, (sender, e) => ApplicationExit());
 
             Icon trayIconImage = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             trayIcon.Icon = trayIconImage;
@@ -183,22 +198,15 @@ namespace _92CloudWallpaper
 
         private void ShowFloatWindow()
         {
-            //if (floatWindow == null || !floatWindow.IsVisible)
-            {
-                floatWindow = new WallpaperControlWindow(mainForm, this);
-                
-                floatWindow.Show();
-                floatWindowMenuItem.Checked = true;
-            }
+            floatWindow = new WallpaperControlWindow(mainForm, this);
+            floatWindow.Show();
+            floatWindowMenuItem.Checked = true;
         }
 
         private void HideFloatWindow()
         {
-            //if (floatWindow != null && floatWindow.IsVisible)
-            {
-                floatWindow.Close();
-                floatWindowMenuItem.Checked = false;
-            }
+            floatWindow.Close();
+            floatWindowMenuItem.Checked = false;
         }
 
         public void UpdateLoginMenuItem(string text, EventHandler clickEvent)
@@ -257,9 +265,21 @@ namespace _92CloudWallpaper
             }
         }
 
+        private void ClearCache(object sender, EventArgs e)
+        {
+            var result = MessageBox.Show("确定要清理缓存吗？\n清理完成后软件会重新启动。", "确认清理缓存", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (result == DialogResult.Yes)
+            {
+                ImageCacheManager cacheManager = new ImageCacheManager();
+                timer.Stop();
+                cacheManager.DeleteCacheDirectory();
+                Program.Restart();
+            }
+        }
+
         private void ApplicationExit()
         {
-            floatWindow?.Close();
+            trayIcon.Visible = false;
             Application.Exit();
         }
     }

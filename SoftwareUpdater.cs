@@ -30,13 +30,13 @@ namespace _92CloudWallpaper
             versionCheckTimer.Start();
         }
 
-        public Task CheckForUpdateAsync()
+        public async Task CheckForUpdateAsync()
         {
             using (var client = new WebClient())
             {
                 client.Headers.Add("User-Agent", "request");
                 client.Encoding = System.Text.Encoding.UTF8;  // 确保处理 UTF-8 编码
-                var response = client.DownloadString(githubReleasesUrl);
+                var response = await client.DownloadStringTaskAsync(githubReleasesUrl);
                 using (JsonDocument doc = JsonDocument.Parse(response))
                 {
                     var latestVersion = doc.RootElement.GetProperty("tag_name").GetString();
@@ -51,20 +51,35 @@ namespace _92CloudWallpaper
 
                     if (latestVersion != Main.CurrentVersion)
                     {
-                        mainForm.UpdateVersionMenuItemText($"版本 {Main.CurrentVersion} (新版本可用)");
-                        mainForm.SetVersionMenuItemClickEvent(DownloadLatestVersion);
+                        ShowUpdateDialog();
                     }
                     else
                     {
-                        mainForm.UpdateVersionMenuItemText($"版本 {Main.CurrentVersion} (暂无新版本)");
+                        ShowNoUpdateDialog();
                     }
                 }
             }
-
-            return Task.CompletedTask;
         }
 
-        private async void DownloadLatestVersion(object sender, EventArgs e)
+        private void ShowUpdateDialog()
+        {
+            var result = MessageBox.Show("发现新版本，是否立即更新？", "更新提示", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+            if (result == DialogResult.Yes)
+            {
+                DownloadLatestVersion();
+            }
+        }
+
+        private void ShowNoUpdateDialog()
+        {
+            var result = MessageBox.Show("未发现新版本。", "更新提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (result == DialogResult.OK)
+            {
+                // Do nothing, just close the dialog
+            }
+        }
+
+        private async void DownloadLatestVersion()
         {
             if (downloadUrl != "")
             {

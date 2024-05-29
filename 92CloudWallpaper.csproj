@@ -120,17 +120,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ApiRequestHandler.cs" />
-    <Compile Include="MainForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="MainForm.Designer.cs">
-      <DependentUpon>MainForm.cs</DependentUpon>
-    </Compile>
     <Compile Include="WeatherService.cs" />
-    <Compile Include="Downloader.cs" />
-    <Compile Include="ImageCarousel.cs">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Include="Logger.cs" />
     <Compile Include="Main.cs">
       <SubType>Form</SubType>
@@ -157,9 +147,6 @@
     <Compile Include="SoftwareUpdater.cs" />
     <Compile Include="WallpaperControlWindow.xaml.cs">
       <DependentUpon>WallpaperControlWindow.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="WpfWindow.xaml.cs">
-      <DependentUpon>WpfWindow.xaml</DependentUpon>
     </Compile>
     <EmbeddedResource Include="LoginForm.resx">
       <DependentUpon>LoginForm.cs</DependentUpon>
@@ -225,10 +212,6 @@
   </ItemGroup>
   <ItemGroup>
     <Page Include="WallpaperControlWindow.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="WpfWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

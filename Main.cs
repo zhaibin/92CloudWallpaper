@@ -10,7 +10,7 @@ namespace _92CloudWallpaper
         private Timer timer;
         public int defaultInterval = 600000;
         public int savedInterval { get; set; } = 600000; // 默认值为10分钟
-        public static readonly string CurrentVersion = "v0.3.1"; // 当前版本号
+        public static readonly string CurrentVersion = "v0.3.2"; // 当前版本号
         //private bool isPaused = false;
         private MenuHandler menuHandler;
         private SoftwareUpdater softwareUpdater;
@@ -31,11 +31,14 @@ namespace _92CloudWallpaper
                 menuHandler = new MenuHandler(this, trayIcon, timer); // 先初始化
                 softwareUpdater = new SoftwareUpdater(this);
                 wallpaperControlWindow = new WallpaperControlWindow(this, menuHandler);
-                
+
 
                 InitializeTimer(savedInterval);
 
                 Task.Run(() => InitializeCarouselAsync());
+
+                // 检查更新
+                //Task.Run(async () => await softwareUpdater.CheckForUpdateAsync());
             }
             catch (Exception ex)
             {
@@ -43,7 +46,7 @@ namespace _92CloudWallpaper
             }
         }
 
-        private async Task InitializeCarouselAsync()
+        public async Task InitializeCarouselAsync()
         {
             await cacheManager.LoadImagesAsync();
             if (cacheManager.ImageInfos.Count > 0 && cacheManager.ImageCache.ContainsKey(cacheManager.ImageInfos[cacheManager.CurrentIndex].Url))
@@ -53,21 +56,16 @@ namespace _92CloudWallpaper
             }
         }
 
-        private void  UpdateImageDisplayAsync(ImageCacheManager.ImageCacheItem cacheItem)
+        private void UpdateImageDisplayAsync(ImageCacheManager.ImageCacheItem cacheItem)
         {
-            // 打印当前线程ID，用于调试
-            Console.WriteLine($"UpdateImageDisplay Thread: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
-
             try
             {
                 currentImageInfo = cacheItem.Info;
                 SetWallpaper(cacheItem.FilePath);
                 cacheManager.SaveCurrentPosition(cacheManager.CurrentIndex);
-                
             }
             catch (Exception ex)
             {
-                // 图片文件可能损坏或格式不支持，处理异常并记录日志
                 Console.WriteLine($"Failed to load image from {cacheItem.FilePath}. Exception: {ex.Message}");
             }
         }
@@ -94,29 +92,19 @@ namespace _92CloudWallpaper
             menuHandler.SetVersionMenuItemClickEvent(eventHandler);
         }
 
-
         public async void ShowNextImage()
         {
             if (cacheManager.ImageInfos.Count > 0)
             {
-                Console.WriteLine($"cacheManager.CurrentIndex : {cacheManager.CurrentIndex}");
                 cacheManager.CurrentIndex = (cacheManager.CurrentIndex + 1) % cacheManager.ImageInfos.Count;
                 if (cacheManager.ImageCache.ContainsKey(cacheManager.ImageInfos[cacheManager.CurrentIndex].Url))
                 {
-                   UpdateImageDisplayAsync(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
+                    UpdateImageDisplayAsync(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
                 }
 
-                // 仅在最后一张时调用同步方法
                 if (cacheManager.CurrentIndex == cacheManager.ImageInfos.Count - 1)
                 {
                     await cacheManager.LoadImagesAsync();
-                }
-                
-                //if (wallpaperControlWindow != null)
-                {
-                    // 确保在主线程上更新 UI
-                    
-                    //await wallpaperControlWindow.Dispatcher.InvokeAsync(() => wallpaperControlWindow.DisplayImageInfo());
                 }
             }
         }
@@ -149,7 +137,6 @@ namespace _92CloudWallpaper
             int savedInterval = Properties.Settings.Default.SelectedInterval;
             if (savedInterval > 0)
             {
-                // 恢复计时器间隔
                 Properties.Settings.Default.SelectedInterval = savedInterval;
                 Properties.Settings.Default.Save();
             }
@@ -161,7 +148,6 @@ namespace _92CloudWallpaper
         {
             if (interval > 0)
             {
-                Console.WriteLine($"interval {interval}");
                 timer.Interval = interval;
                 timer.Tick += (sender, e) => ShowNextImage();
                 timer.Start();
@@ -182,11 +168,10 @@ namespace _92CloudWallpaper
             Properties.Settings.Default.UserId = 0;
             Properties.Settings.Default.Save();
 
-            //ClearCache();
             GlobalData.UserId = 0;
             GlobalData.LoginFlag = 0;
-            //cacheIndex = 0;  // 重置cacheIndex
-            //await InitializeAndSetWallpaperAsync();
+            cacheManager.SaveVersionInfo(CurrentVersion, GlobalData.UserId);
+
             Task.Run(() => InitializeCarouselAsync());
         }
 
@@ -198,9 +183,7 @@ namespace _92CloudWallpaper
         private async void LoginSuccess()
         {
             UpdateLoginMenuItem("登出", Logout);
-            //ClearCache();
-            //cacheIndex = 0;  // 重置cacheIndex
-            //await InitializeAndSetWallpaperAsync();
+            cacheManager.SaveVersionInfo(CurrentVersion, GlobalData.UserId);
             await Task.Run(() => InitializeCarouselAsync());
         }
 
@@ -233,6 +216,20 @@ namespace _92CloudWallpaper
             Visible = false; // 隐藏窗体
             ShowInTaskbar = false; // 移除任务栏图标
             base.OnLoad(e);
+        }
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
+            CleanupBeforeExit();
+        }
+
+        private void CleanupBeforeExit()
+        {
+            timer.Stop();
+            wallpaperControlWindow?.Close();
+            cacheManager.SaveCurrentPosition(cacheManager.CurrentIndex);
+            cacheManager.SaveVersionInfo(CurrentVersion, GlobalData.UserId);
+            trayIcon.Dispose();
         }
     }
 }

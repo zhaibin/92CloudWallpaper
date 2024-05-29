@@ -1,13 +1,13 @@
 ﻿using _92CloudWallpaper;
-using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System;
+using System.Linq;
 
 public class ImageCacheManager
 {
@@ -15,6 +15,7 @@ public class ImageCacheManager
     private static string tempPath;
     private static string cacheDirectory;
     private static string databaseFilePath;
+    private static string cacheRootDirectory;
 
     public Dictionary<string, ImageCacheItem> ImageCache { get; private set; }
     public List<ImageInfo> ImageInfos { get; private set; }
@@ -25,16 +26,24 @@ public class ImageCacheManager
 
     public ImageCacheManager()
     {
-        httpClient = new HttpClient();
-        ImageCache = new Dictionary<string, ImageCacheItem>();
-        ImageInfos = new List<ImageInfo>();
-        tempPath = Path.GetTempPath();
-        cacheDirectory = Path.Combine(tempPath, "CloudWallpaper", "U_" + GlobalData.UserId);
-        databaseFilePath = Path.Combine(cacheDirectory, "cache.db");
-        InitializeCacheDirectory();
-        InitializeDatabase();
-        LoadMetadata();
-        LoadCurrentPosition();
+        try
+        {
+            httpClient = new HttpClient();
+            ImageCache = new Dictionary<string, ImageCacheItem>();
+            ImageInfos = new List<ImageInfo>();
+            tempPath = Path.GetTempPath();
+            cacheRootDirectory = Path.Combine(tempPath, "CloudWallpaper");
+            cacheDirectory = Path.Combine(cacheRootDirectory, "U_" + GlobalData.UserId);
+            databaseFilePath = Path.Combine(cacheDirectory, "cache.db");
+            InitializeCacheDirectory();
+            InitializeDatabase();
+            LoadMetadata();
+            LoadCurrentPosition();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError("Error during ImageCacheManager initialization", ex);
+        }
     }
 
     public async Task LoadImagesAsync()
@@ -66,15 +75,27 @@ public class ImageCacheManager
             }
             else
             {
-                foreach (var imageInfo in newImageInfos)
+                foreach (var newImageInfo in newImageInfos)
                 {
-                    newImageUrls.Add(imageInfo.Url);
-                    if (!ImageCache.ContainsKey(imageInfo.Url))
+                    newImageUrls.Add(newImageInfo.Url);
+
+                    if (ImageCache.TryGetValue(newImageInfo.Url, out var cachedItem))
                     {
-                        ImageInfos.Add(imageInfo);
-                        await CacheImageAsync(imageInfo);
+                        if (!ImageInfoEquals(cachedItem.Info, newImageInfo))
+                        {
+                            // Image info has changed, update cache
+                            ImageInfos.Remove(cachedItem.Info);
+                            ImageInfos.Add(newImageInfo);
+                            await CacheImageAsync(newImageInfo, true);
+                        }
+                    }
+                    else
+                    {
+                        ImageInfos.Add(newImageInfo);
+                        await CacheImageAsync(newImageInfo, false);
                     }
                 }
+
                 pageIndex++;
                 body["pageIndex"] = pageIndex;
             }
@@ -107,26 +128,21 @@ public class ImageCacheManager
         return imageInfos;
     }
 
-    private async Task CacheImageAsync(ImageInfo imageInfo)
+    private async Task CacheImageAsync(ImageInfo imageInfo, bool updateExisting)
     {
-        if (!ImageCache.ContainsKey(imageInfo.Url))
+        var filePath = Path.Combine(cacheDirectory, Path.GetFileName(imageInfo.Url) + ".webp");
+
+        if (updateExisting && File.Exists(filePath))
         {
-            var filePath = Path.Combine(cacheDirectory, Path.GetFileName(imageInfo.Url) + ".webp");
+            File.Delete(filePath);
+        }
 
-            if (File.Exists(filePath) && new FileInfo(filePath).Length > 0)
-            {
-                ImageCache[imageInfo.Url] = new ImageCacheItem { FilePath = filePath, Info = imageInfo };
-                SaveMetadata(imageInfo.Url, filePath, imageInfo.Description, imageInfo.Location, imageInfo.ShootTime, imageInfo.ShootAddr, imageInfo.AuthorUrl, imageInfo.AuthorName);
-                return;
-            }
+        bool downloadSuccess = await DownloadImageAsync(imageInfo.Url, filePath);
 
-            bool downloadSuccess = await DownloadImageAsync(imageInfo.Url, filePath);
-
-            if (downloadSuccess)
-            {
-                ImageCache[imageInfo.Url] = new ImageCacheItem { FilePath = filePath, Info = imageInfo };
-                SaveMetadata(imageInfo.Url, filePath, imageInfo.Description, imageInfo.Location, imageInfo.ShootTime, imageInfo.ShootAddr, imageInfo.AuthorUrl, imageInfo.AuthorName);
-            }
+        if (downloadSuccess)
+        {
+            ImageCache[imageInfo.Url] = new ImageCacheItem { FilePath = filePath, Info = imageInfo };
+            SaveMetadata(imageInfo.Url, filePath, imageInfo.Description, imageInfo.Location, imageInfo.ShootTime, imageInfo.ShootAddr, imageInfo.AuthorUrl, imageInfo.AuthorName);
         }
     }
 
@@ -138,11 +154,31 @@ public class ImageCacheManager
             try
             {
                 var bytes = await httpClient.GetByteArrayAsync(url);
-                await Task.Run(() => File.WriteAllBytes(filePath, bytes));
+
+                using (var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, true))
+                {
+                    await fs.WriteAsync(bytes, 0, bytes.Length);
+                }
+
                 return true;
             }
-            catch
+            catch (IOException ioEx)
             {
+                Console.WriteLine($"IOException caught: {ioEx.Message}");
+                // Handle IO exception, e.g., by retrying
+                if (retry == maxRetry - 1)
+                {
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception caught: {ex.Message}");
+                // Handle other exceptions, e.g., by retrying
                 if (retry == maxRetry - 1)
                 {
                     if (File.Exists(filePath))
@@ -175,8 +211,26 @@ public class ImageCacheManager
         }
     }
 
+    public void SaveVersionInfo(string version, int userId)
+    {
+        var versionInfo = new
+        {
+            version = version,
+            userId = userId
+        };
+
+        string jsonString = JsonSerializer.Serialize(versionInfo);
+        string versionFilePath = Path.Combine(cacheRootDirectory, "info.json");
+        Console.WriteLine(jsonString);
+        File.WriteAllText(versionFilePath, jsonString);
+    }
+
     private void InitializeCacheDirectory()
     {
+        if (!Directory.Exists(cacheRootDirectory))
+        {
+            Directory.CreateDirectory(cacheRootDirectory);
+        }
         if (!Directory.Exists(cacheDirectory))
         {
             Directory.CreateDirectory(cacheDirectory);
@@ -207,41 +261,6 @@ public class ImageCacheManager
                 command.ExecuteNonQuery();
             }
 
-            // Check and add missing columns
-            var columnCheckQueries = new List<string>
-            {
-                "PRAGMA table_info(ImageCache)"
-            };
-
-            using (var command = new SQLiteCommand(columnCheckQueries[0], connection))
-            {
-                using (var reader = command.ExecuteReader())
-                {
-                    var columns = new HashSet<string>();
-                    while (reader.Read())
-                    {
-                        columns.Add(reader["name"].ToString());
-                    }
-
-                    if (!columns.Contains("AuthorUrl"))
-                    {
-                        string addColumnQuery = "ALTER TABLE ImageCache ADD COLUMN AuthorUrl TEXT";
-                        using (var addColumnCommand = new SQLiteCommand(addColumnQuery, connection))
-                        {
-                            addColumnCommand.ExecuteNonQuery();
-                        }
-                    }
-
-                    if (!columns.Contains("AuthorName"))
-                    {
-                        string addColumnQuery = "ALTER TABLE ImageCache ADD COLUMN AuthorName TEXT";
-                        using (var addColumnCommand = new SQLiteCommand(addColumnQuery, connection))
-                        {
-                            addColumnCommand.ExecuteNonQuery();
-                        }
-                    }
-                }
-            }
 
             string createPositionTableQuery = @"CREATE TABLE IF NOT EXISTS CarouselPosition (
                                                 Id INTEGER PRIMARY KEY,
@@ -250,6 +269,7 @@ public class ImageCacheManager
             {
                 command.ExecuteNonQuery();
             }
+            connection.Close();
         }
     }
 
@@ -333,21 +353,29 @@ public class ImageCacheManager
                 command.Parameters.AddWithValue("@url", url);
                 command.ExecuteNonQuery();
             }
+            connection.Close();
         }
     }
 
     public void SaveCurrentPosition(int currentIndex)
     {
-        using (var connection = new SQLiteConnection($"Data Source={databaseFilePath};Version=3;"))
-        {
-            connection.Open();
-            string insertQuery = @"REPLACE INTO CarouselPosition (Id, CurrentIndex)
-                                   VALUES (1, @currentIndex)";
-            using (var command = new SQLiteCommand(insertQuery, connection))
+        try { 
+            using (var connection = new SQLiteConnection($"Data Source={databaseFilePath};Version=3;"))
             {
-                command.Parameters.AddWithValue("@currentIndex", currentIndex);
-                command.ExecuteNonQuery();
+                connection.Open();
+                string insertQuery = @"REPLACE INTO CarouselPosition (Id, CurrentIndex)
+                                       VALUES (1, @currentIndex)";
+                using (var command = new SQLiteCommand(insertQuery, connection))
+                {
+                    command.Parameters.AddWithValue("@currentIndex", currentIndex);
+                    command.ExecuteNonQuery();
+                }
+                connection.Close();
             }
+        }
+        catch
+        {
+
         }
     }
 
@@ -367,7 +395,53 @@ public class ImageCacheManager
                     }
                 }
             }
+            connection.Close();
         }
+    }
+    // 删除数据文件
+    public void DeleteDatabaseFile()
+    {
+        if (File.Exists(databaseFilePath))
+        {
+            File.Delete(databaseFilePath);
+            Console.WriteLine("数据库文件已删除。");
+        }
+    }
+
+    // 删除缓存目录
+    public void DeleteCacheDirectory()
+    {
+        if (Directory.Exists(cacheDirectory))
+        {
+            Directory.Delete(cacheDirectory, true);
+            Console.WriteLine("缓存目录已删除。");
+        }
+    }
+
+    // 删除所有图片
+    public void DeleteAllCachedImages()
+    {
+        foreach (var cacheItem in ImageCache.Values)
+        {
+            if (File.Exists(cacheItem.FilePath))
+            {
+                File.Delete(cacheItem.FilePath);
+                Console.WriteLine($"已删除图片：{cacheItem.FilePath}");
+            }
+        }
+        ImageCache.Clear();
+        ImageInfos.Clear();
+        Console.WriteLine("所有缓存图片已删除。");
+    }
+
+    private bool ImageInfoEquals(ImageInfo info1, ImageInfo info2)
+    {
+        return info1.Description == info2.Description &&
+               info1.Location == info2.Location &&
+               info1.ShootTime == info2.ShootTime &&
+               info1.ShootAddr == info2.ShootAddr &&
+               info1.AuthorUrl == info2.AuthorUrl &&
+               info1.AuthorName == info2.AuthorName;
     }
 
     public class ImageInfo

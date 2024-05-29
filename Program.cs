@@ -1,6 +1,6 @@
-﻿using MyAppNamespace;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,11 +14,11 @@ namespace _92CloudWallpaper
         /// 应用程序的主入口点。
         /// </summary>
         // 唯一的Mutex名称
-        private static string mutexName = "UniqueAppNameMutex";
+        private static string mutexName = "92CloudWallpaper";
         private static Mutex mutex;
 
         [STAThread]
-        static void Main()
+        static void Main(string[] args)
         {
             bool createdNew;
             mutex = new Mutex(true, mutexName, out createdNew);
@@ -26,15 +26,46 @@ namespace _92CloudWallpaper
             if (!createdNew)
             {
                 // 如果Mutex已经被创建，说明已有实例在运行，显示提示并退出
-                MessageBox.Show("应用程序已在运行中。在右下角托盘可以找到我。");
-                return;
+                if (args.Length == 0 || args[0] != "/restart")
+                {
+                    MessageBox.Show("应用程序已在运行中。在右下角托盘可以找到我。");
+                    return;
+                }
             }
+
+            Application.ApplicationExit += new EventHandler(OnApplicationExit);
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new Main());
-            //Application.Run(new ImageCarousel());
+
+            // 在此处不再调用 mutex.ReleaseMutex();
+        }
+
+        private static void OnApplicationExit(object sender, EventArgs e)
+        {
             // 释放Mutex
-            mutex.ReleaseMutex();
+            if (mutex != null)
+            {
+                mutex.ReleaseMutex();
+                mutex = null;
+            }
+        }
+
+        public static void Restart()
+        {
+            // 释放当前的Mutex
+            if (mutex != null)
+            {
+                mutex.ReleaseMutex();
+                mutex = null;
+            }
+
+            // 启动新实例，传递重启参数
+            Process.Start(Application.ExecutablePath, "/restart");
+
+            // 退出当前实例
+            Application.Exit();
         }
     }
 }

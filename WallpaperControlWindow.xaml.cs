@@ -80,11 +80,7 @@ namespace _92CloudWallpaper
             // 加载天气信息
             await LoadWeatherPage();
 
-            // 确保CurrentImageInfo已经被初始化
-            if (MainForm.currentImageInfo != null)
-            {
-                DisplayImageInfo();
-            }
+            
         }
 
         private async Task LoadWeatherPage()
@@ -103,6 +99,16 @@ namespace _92CloudWallpaper
                         + weatherResult.WindDirection + " " + weatherResult.WindSpeed + "\n"
                         + weatherResult.Visibility + "\n";
                     WeatherIcon.Text = weatherResult.WeatherIcon;
+                    // 格式化时间并添加 emoji 刷新文案
+                    DateTime obsDateTime;
+                    if (DateTime.TryParse(weatherResult.LocalObsDateTime, out obsDateTime))
+                    {
+                        ObsDateTime.Text = obsDateTime.ToString("MM-dd HH:mm");
+                    }
+                    else
+                    {
+                        ObsDateTime.Text = weatherResult.LocalObsDateTime;
+                    }
                 });
             }
             else
@@ -118,11 +124,25 @@ namespace _92CloudWallpaper
             if (this.Dispatcher.CheckAccess())
             {
                 var imageInfo = MainForm.currentImageInfo; // 获取当前图片信息
-                if(imageInfo != null) { 
+                if(imageInfo != null) {
                     // 更新界面上的标签或其他控件以显示图片信息
-                    var currTime = DateTime.Now;
-                    ShootTime.Text = imageInfo.ShootTime;
-                    ShootAddr.Text = imageInfo.ShootAddr;
+                    if(imageInfo.ShootTime != "") { 
+                        DateTime shootTime;
+                        if (DateTime.TryParse(imageInfo.ShootTime, out shootTime))
+                        {
+                            ShootTime.Text = shootTime.ToString("YYYY-MM-dd");
+                        }
+                        else
+                        {
+                            ShootTime.Text = imageInfo.ShootTime;
+                        }
+                        ShootTime_Label.Text = "拍摄时间";
+                    }
+                    if (imageInfo.ShootAddr != "")
+                    {
+                        ShootAddr_Label.Text = "拍摄地点";
+                        ShootAddr.Text = imageInfo.ShootAddr;
+                    }
                     AuthorUrl.Source = new BitmapImage(new Uri(imageInfo.AuthorUrl));
                     PicContent.Text = imageInfo.Description;
                     AuthorName.Text = imageInfo.AuthorName;
@@ -166,6 +186,10 @@ namespace _92CloudWallpaper
             Properties.Settings.Default.LastWindowTop = this.Top;
             Properties.Settings.Default.Save();
             ShowInTaskbar = false; // 窗口关闭时隐藏任务栏图标
+        }
+        private async void ObsDateTime_MouseLeftButtonDown(object sender, RoutedEventArgs e)
+        {
+            await LoadWeatherPage();
         }
 
         private void PrevButton_Click(object sender, RoutedEventArgs e)
