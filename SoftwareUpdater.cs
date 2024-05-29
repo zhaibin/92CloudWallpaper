@@ -49,7 +49,7 @@ namespace _92CloudWallpaper
                         MessageBox.Show($"An error occurred: {ex.Message}.URL{downloadUrl}");
                     }
 
-                    if (latestVersion != Main.CurrentVersion)
+                    if (latestVersion != mainForm.GetCurrentVersion())
                     {
                         ShowUpdateDialog();
                     }

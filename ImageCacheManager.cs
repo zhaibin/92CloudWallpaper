@@ -18,7 +18,7 @@ public class ImageCacheManager
     private static string cacheRootDirectory;
 
     public Dictionary<string, ImageCacheItem> ImageCache { get; private set; }
-    public List<ImageInfo> ImageInfos { get; private set; }
+    public List<ImageInfo> ImageInfos { get; set; }
     private readonly int screenWidth = Screen.PrimaryScreen.Bounds.Width;
     private readonly int screenHeight = Screen.PrimaryScreen.Bounds.Height;
     private readonly string appImageUrl = "https://cnapi.levect.com/v1/photoFrame/imageList";
@@ -43,6 +43,7 @@ public class ImageCacheManager
         catch (Exception ex)
         {
             Logger.LogError("Error during ImageCacheManager initialization", ex);
+            DeleteCacheDirectory();
         }
     }
 

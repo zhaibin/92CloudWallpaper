@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Data.Entity.Spatial;
-using System.Net.Http;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media.Imaging;
@@ -88,7 +86,7 @@ namespace _92CloudWallpaper
             // 打印当前线程ID，用于调试
             Console.WriteLine($"Weather Thread: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
             var time = DateTime.Now;
-            Console.WriteLine(time);
+            Console.WriteLine($"WeatherWindow : {time}");
             var weatherResult = await weatherService.GetWeatherAsync();
             if (weatherResult.Status == 1)
             {
@@ -123,6 +121,9 @@ namespace _92CloudWallpaper
         {
             if (this.Dispatcher.CheckAccess())
             {
+                Console.WriteLine($"InfoWindow Thread: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+                var time = DateTime.Now;
+                Console.WriteLine($"InfoWindow : {time}");
                 var imageInfo = MainForm.currentImageInfo; // 获取当前图片信息
                 if(imageInfo != null) {
                     // 更新界面上的标签或其他控件以显示图片信息
@@ -148,6 +149,15 @@ namespace _92CloudWallpaper
                     AuthorName.Text = imageInfo.AuthorName;
                     //PicContent.Text = currTime.ToString();
                     //Console.WriteLine($"AuthorUrl: {imageInfo.AuthorUrl}");
+                }
+                else
+                {
+                    ShootTime.Text = "";
+                    ShootAddr.Text = "";
+                    AuthorUrl.Source = null;
+                    PicContent.Text = "";
+                    AuthorName.Text = "";
+                    Console.WriteLine($"InfoWindow 2: {time}");
                 }
             }
             else

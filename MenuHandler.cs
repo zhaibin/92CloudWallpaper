@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using System;
 using System.Diagnostics;
+using System.Reflection;
 
 
 namespace _92CloudWallpaper
@@ -22,12 +23,14 @@ namespace _92CloudWallpaper
         private ToolStripMenuItem settingsMenu;
         private ToolStripMenuItem clearCacheMenuItem;
         private ToolStripMenuItem manageWallpapersMenuItem;
+        //public readonly string currentVersion; // 当前版本号
         private readonly int[] times = { 0, 60000, 600000, 1800000, 3600000, 86400000 };
         private readonly string[] intervals = { "暂停", "1 分钟", "10 分钟", "半小时", "1 小时", "1 天" };
         private int previousInterval;
 
         public MenuHandler(Main mainForm, NotifyIcon trayIcon, Timer timer)
         {
+            
             this.mainForm = mainForm;
             this.trayIcon = trayIcon;
             this.timer = timer;
@@ -96,7 +99,7 @@ namespace _92CloudWallpaper
 
             trayMenu.Items.Add(settingsMenu);
             trayMenu.Items.Add(changeWallpaperMenu);
-            versionMenuItem = new ToolStripMenuItem($"版本 {Main.CurrentVersion}");
+            versionMenuItem = new ToolStripMenuItem($"版本 {mainForm.GetCurrentVersion()}");
             versionMenuItem.Click += mainForm.CheckForUpdate;
 
             trayMenu.Items.Add(versionMenuItem);
