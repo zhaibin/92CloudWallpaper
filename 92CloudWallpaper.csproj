@@ -170,6 +170,10 @@
     <Content Include="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Resource Include="Resources\next_icon.svg" />
+    <Resource Include="Resources\pause_icon.svg" />
+    <Resource Include="Resources\play_icon.svg" />
+    <Resource Include="Resources\prev_icon.svg" />
     <Resource Include="Resources\7418_logo512.png" />
     <Resource Include="Resources\play_icon.png" />
     <Resource Include="Resources\pause_icon.png" />

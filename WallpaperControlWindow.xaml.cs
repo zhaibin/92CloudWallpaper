@@ -131,7 +131,7 @@ namespace _92CloudWallpaper
                         DateTime shootTime;
                         if (DateTime.TryParse(imageInfo.ShootTime, out shootTime))
                         {
-                            ShootTime.Text = shootTime.ToString("YYYY-MM-dd");
+                            ShootTime.Text = shootTime.ToString("yyyy-MM-dd");
                         }
                         else
                         {
@@ -139,10 +139,20 @@ namespace _92CloudWallpaper
                         }
                         ShootTime_Label.Text = "拍摄时间";
                     }
+                    else
+                    {
+                        ShootTime_Label.Text = "";
+                        ShootTime.Text = "";
+                    }
                     if (imageInfo.ShootAddr != "")
                     {
                         ShootAddr_Label.Text = "拍摄地点";
                         ShootAddr.Text = imageInfo.ShootAddr;
+                    }
+                    else
+                    {
+                        ShootAddr_Label.Text = "";
+                        ShootAddr.Text = "";
                     }
                     AuthorUrl.Source = new BitmapImage(new Uri(imageInfo.AuthorUrl));
                     PicContent.Text = imageInfo.Description;
