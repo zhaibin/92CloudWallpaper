@@ -51,11 +51,11 @@ namespace _92CloudWallpaper
         public string GetCurrentVersion()
         {
             // 获取当前程序集
-            Assembly assembly = Assembly.GetExecutingAssembly();
+            //Assembly assembly = Assembly.GetExecutingAssembly();
             // 获取程序集版本号
-            Version version = assembly.GetName().Version;
-            currentVersion = "v"+version.ToString();
-
+            //Version version = assembly.GetName().Version;
+            //currentVersion = "v"+version.ToString();
+            currentVersion = "v0.3.3.0";
             return currentVersion;
         }
         public async Task InitializeCarouselAsync(ImageCacheManager cacheManager)
