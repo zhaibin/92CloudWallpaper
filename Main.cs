@@ -2,7 +2,6 @@
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using static ImageCacheManager;
 
 namespace _92CloudWallpaper
 {
@@ -21,7 +20,8 @@ namespace _92CloudWallpaper
 
 
         public ImageCacheManager.ImageInfo currentImageInfo { get; set; } // 定义当前图片信息的成员变量
-
+        public int currentWallpaperIndex { get; set; }
+        public int wallpaperCount { get; set; }
         public Main()
         {
             try
@@ -37,10 +37,10 @@ namespace _92CloudWallpaper
 
                 InitializeTimer(savedInterval);
 
-                Task.Run(() => InitializeCarouselAsync());
+                Task.Run(() => InitializeCarouselAsync(cacheManager));
 
                 // 检查更新
-                //Task.Run(async () => await softwareUpdater.CheckForUpdateAsync());
+                Task.Run(async () => await softwareUpdater.CheckForUpdateAsync());
             }
             catch (Exception ex)
             {
@@ -58,7 +58,7 @@ namespace _92CloudWallpaper
 
             return currentVersion;
         }
-        public async Task InitializeCarouselAsync()
+        public async Task InitializeCarouselAsync(ImageCacheManager cacheManager)
         {
             await cacheManager.LoadImagesAsync();
             if (cacheManager.ImageInfos.Count > 0 && cacheManager.ImageCache.ContainsKey(cacheManager.ImageInfos[cacheManager.CurrentIndex].Url))
@@ -75,6 +75,8 @@ namespace _92CloudWallpaper
                 currentImageInfo = cacheItem.Info;
                 SetWallpaper(cacheItem.FilePath);
                 cacheManager.SaveCurrentPosition(cacheManager.CurrentIndex);
+                currentWallpaperIndex = cacheManager.CurrentIndex;
+                wallpaperCount = cacheManager.ImageInfos.Count;
             }
             catch (Exception ex)
             {
@@ -171,7 +173,9 @@ namespace _92CloudWallpaper
             if (MessageBox.Show("您确定要登出吗？", "确认登出", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
                 AttemptLogout();
-                UpdateLoginMenuItem("登录", Login);
+                //UpdateLoginMenuItem("登录", Login);
+                menuHandler.UpdateLoginMenuItem("登录", Login);
+
             }
         }
 
@@ -181,11 +185,13 @@ namespace _92CloudWallpaper
             Properties.Settings.Default.Save();
 
             GlobalData.UserId = 0;
-            GlobalData.LoginFlag = 0;
-            cacheManager.SaveVersionInfo(GetCurrentVersion(), GlobalData.UserId);
+            //GlobalData.LoginFlag = 0;
+            var cacheManagerNew = new ImageCacheManager();
+            cacheManagerNew.SaveVersionInfo(GetCurrentVersion(), GlobalData.UserId);
             
-            Task.Run(() => InitializeCarouselAsync());
-            //cacheManager.ImageInfos = null;
+            Task.Run(() => InitializeCarouselAsync(cacheManagerNew));
+            cacheManager = cacheManagerNew;
+            menuHandler.RemoveManageWallpapersMenuItem();
         }
 
         public void Login(object sender, EventArgs e)
@@ -195,10 +201,16 @@ namespace _92CloudWallpaper
 
         private async void LoginSuccess()
         {
-            UpdateLoginMenuItem("登出", Logout);
-            cacheManager.SaveVersionInfo(GetCurrentVersion(), GlobalData.UserId);
-            await Task.Run(() => InitializeCarouselAsync());
-            ShowNextImage();
+            //UpdateLoginMenuItem("登出", Logout);
+            menuHandler.UpdateLoginMenuItem("登出", Logout);
+            menuHandler.AddManageWallpapersMenuItem();
+            var cacheManagerNew = new ImageCacheManager();
+            cacheManagerNew.SaveVersionInfo(GetCurrentVersion(), GlobalData.UserId);
+            cacheManager = cacheManagerNew;
+            await Task.Run(() => InitializeCarouselAsync(cacheManagerNew));
+            
+            
+            //ShowNextImage();
 
 
         }

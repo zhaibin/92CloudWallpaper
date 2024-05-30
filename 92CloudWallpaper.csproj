@@ -207,6 +207,9 @@
     <PackageReference Include="Newtonsoft.Json">
       <Version>13.0.3</Version>
     </PackageReference>
+    <PackageReference Include="SharpVectors.Wpf">
+      <Version>1.8.4</Version>
+    </PackageReference>
     <PackageReference Include="System.Data.SQLite" Version="1.0.118" />
     <PackageReference Include="System.Text.Json">
       <Version>8.0.3</Version>

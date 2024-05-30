@@ -1,8 +1,9 @@
 ﻿using System;
-using System.Threading.Tasks;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+
 
 namespace _92CloudWallpaper
 {
@@ -10,13 +11,12 @@ namespace _92CloudWallpaper
     {
         public Main MainForm { get; set; }
         private readonly MenuHandler menuHandler;
-        private readonly WeatherService weatherService;
-        private DispatcherTimer weatherUpdateTimer;
         private DispatcherTimer imageInfoUpdateTimer;
 
         public WallpaperControlWindow(Main mainForm, MenuHandler menuHandler)
         {
             InitializeComponent();
+            
             MainForm = mainForm;
 
             this.menuHandler = menuHandler;
@@ -32,11 +32,11 @@ namespace _92CloudWallpaper
                 PauseButton.Visibility = Visibility.Visible;
                 PlayButton.Visibility = Visibility.Collapsed;
             }
-            weatherService = new WeatherService();
-            InitializeWeatherUpdateTimer();
+            //weatherService = new WeatherService();
+            //InitializeWeatherUpdateTimer();
             InitializeImageInfoUpdateTimer();
         }
-
+        /*
         private void InitializeWeatherUpdateTimer()
         {
             weatherUpdateTimer = new DispatcherTimer();
@@ -44,21 +44,22 @@ namespace _92CloudWallpaper
             weatherUpdateTimer.Tick += async (sender, e) => await WeatherUpdateTimer_Tick(sender, e);
             weatherUpdateTimer.Start();
         }
-
+        */
         private void InitializeImageInfoUpdateTimer()
         {
             imageInfoUpdateTimer = new DispatcherTimer();
-            imageInfoUpdateTimer.Interval = TimeSpan.FromSeconds(2); // 每2秒钟更新一次
+            imageInfoUpdateTimer.Interval = TimeSpan.FromSeconds(3); // 每2秒钟更新一次
             imageInfoUpdateTimer.Tick += (sender, e) => DisplayImageInfo();
             imageInfoUpdateTimer.Start();
         }
-
+        /*
         private async Task WeatherUpdateTimer_Tick(object sender, EventArgs e)
         {
             await LoadWeatherPage();
         }
+        */
 
-        private async void Window_Loaded(object sender, RoutedEventArgs e)
+        private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             // 读取上次窗口位置
             if (!double.IsNaN(Properties.Settings.Default.LastWindowLeft) && !double.IsNaN(Properties.Settings.Default.LastWindowTop))
@@ -76,28 +77,31 @@ namespace _92CloudWallpaper
             ShowInTaskbar = false;
 
             // 加载天气信息
-            await LoadWeatherPage();
+            //await LoadWeatherPage();
 
             
         }
-
+        /*
         private async Task LoadWeatherPage()
         {
             // 打印当前线程ID，用于调试
             Console.WriteLine($"Weather Thread: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
             var time = DateTime.Now;
             Console.WriteLine($"WeatherWindow : {time}");
+           
             var weatherResult = await weatherService.GetWeatherAsync();
             if (weatherResult.Status == 1)
             {
                 Dispatcher.Invoke(() => {
                     CityLabel.Text = weatherResult.City;
+                   
                     WeatherText.Text = weatherResult.WeatherDescription + "\n"
-                        + weatherResult.Temperature + "(" + weatherResult.FeelsLikeTemperature + ")\n"
-                        + weatherResult.WindDirection + " " + weatherResult.WindSpeed + "\n"
-                        + weatherResult.Visibility + "\n";
+                        + weatherResult.Temperature + "(" + weatherResult.FeelsLikeTemperature + ")";
+                       // + weatherResult.WindDirection + " " + weatherResult.WindSpeed + "\n"
+                        //+ weatherResult.Visibility + "\n";
                     WeatherIcon.Text = weatherResult.WeatherIcon;
                     // 格式化时间并添加 emoji 刷新文案
+
                     DateTime obsDateTime;
                     if (DateTime.TryParse(weatherResult.LocalObsDateTime, out obsDateTime))
                     {
@@ -107,6 +111,7 @@ namespace _92CloudWallpaper
                     {
                         ObsDateTime.Text = weatherResult.LocalObsDateTime;
                     }
+
                 });
             }
             else
@@ -116,18 +121,28 @@ namespace _92CloudWallpaper
                 });
             }
         }
-
+*/
         public void DisplayImageInfo()
         {
             if (this.Dispatcher.CheckAccess())
             {
-                Console.WriteLine($"InfoWindow Thread: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+                //Console.WriteLine($"InfoWindow Thread: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
                 var time = DateTime.Now;
-                Console.WriteLine($"InfoWindow : {time}");
+
+                if (MainForm.wallpaperCount > 0)
+                {
+                    CurrentWallpaper_Label.Text = "当前壁纸";
+                    CurrentWallpaper.Text = $"第 {(MainForm.currentWallpaperIndex + 1)} 张";
+                    WallpaperCount_Label.Text = "共有壁纸";
+                    WallpaperCount.Text = $"{MainForm.wallpaperCount} 张";
+                }
                 var imageInfo = MainForm.currentImageInfo; // 获取当前图片信息
-                if(imageInfo != null) {
+                if (imageInfo != null) {
                     // 更新界面上的标签或其他控件以显示图片信息
-                    if(imageInfo.ShootTime != "") { 
+                    //imageInfo.ShootTime = "2020-04-05 12:20:20";
+                    //imageInfo.ShootAddr = "北京 西城";
+                    //imageInfo.Description = "北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城";
+                    if (imageInfo.ShootTime != "") { 
                         DateTime shootTime;
                         if (DateTime.TryParse(imageInfo.ShootTime, out shootTime))
                         {
@@ -137,7 +152,7 @@ namespace _92CloudWallpaper
                         {
                             ShootTime.Text = imageInfo.ShootTime;
                         }
-                        ShootTime_Label.Text = "拍摄时间";
+                        ShootTime_Label.Text = "拍摄日期";
                     }
                     else
                     {
@@ -167,7 +182,7 @@ namespace _92CloudWallpaper
                     AuthorUrl.Source = null;
                     PicContent.Text = "";
                     AuthorName.Text = "";
-                    Console.WriteLine($"InfoWindow 2: {time}");
+                    //Console.WriteLine($"InfoWindow 2: {time}");
                 }
             }
             else
@@ -207,11 +222,12 @@ namespace _92CloudWallpaper
             Properties.Settings.Default.Save();
             ShowInTaskbar = false; // 窗口关闭时隐藏任务栏图标
         }
+        /*
         private async void ObsDateTime_MouseLeftButtonDown(object sender, RoutedEventArgs e)
         {
             await LoadWeatherPage();
         }
-
+        */
         private void PrevButton_Click(object sender, RoutedEventArgs e)
         {
             MainForm.ShowPrevImage();
@@ -252,7 +268,33 @@ namespace _92CloudWallpaper
                 PlayButton.Visibility = Visibility.Visible;
             }
         }
+        private void OpenCalculator(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Process.Start("calc.exe");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("无法打开计算器: " + ex.Message);
+            }
+        }
 
+        private void OpenNotepad(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Process.Start("notepad.exe");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("无法打开记事本: " + ex.Message);
+            }
+        }
+
+       
+
+        
         protected override void OnMouseLeftButtonDown(System.Windows.Input.MouseButtonEventArgs e)
         {
             base.OnMouseLeftButtonDown(e);

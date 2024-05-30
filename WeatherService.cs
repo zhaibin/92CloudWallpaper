@@ -9,12 +9,17 @@ public class WeatherService
 {
     private readonly HttpClient client;
     private readonly string language;
+    private readonly string lang;
 
     public WeatherService()
     {
-        client = new HttpClient();
+        client = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(30) // 增加超时时间
+        };
         var cultureInfo = CultureInfo.CurrentCulture;
         language = cultureInfo.Name;
+        lang = cultureInfo.TwoLetterISOLanguageName;
     }
 
     public async Task<(int status, string statusDesc, string city)> GetCityByIpAddressAsync()
@@ -26,8 +31,19 @@ public class WeatherService
             var city = json.RootElement.GetProperty("city").GetString();
             return (1, "正确", city);
         }
-        catch
+        catch (TaskCanceledException ex)
         {
+            Console.WriteLine($"TaskCanceledException: {ex.Message}");
+            return (2, "请求超时", null);
+        }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"HttpRequestException: {ex.Message}");
+            return (2, "没有获得城市信息", null);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception: {ex.Message}");
             return (2, "没有获得城市信息", null);
         }
     }
@@ -80,7 +96,8 @@ public class WeatherService
         try
         {
             city = city.Replace(" ", "+");
-            var lang = language.ToLower();
+            //var lang = language.ToLower();
+            Console.WriteLine($"https://wttr.in/{city}?format=j1&lang={lang}");
             var response = await client.GetStringAsync($"https://wttr.in/{city}?format=j1&lang={lang}");
 
             var json = JsonDocument.Parse(response);
@@ -107,10 +124,48 @@ public class WeatherService
             var localObsDateTime = currentCondition.GetProperty("localObsDateTime").GetString();
             return (1, "正确", (tempC + "°C", feelsLikeC + "°C", weatherDesc, weatherIcon, windSpeed, windDirection, visibility, uvIndex, localObsDateTime));
         }
-        catch
+        catch (TaskCanceledException ex)
         {
-            return (3, "没有获得天气信息", (null, null, null, null, null, null, null, null,null));
+            Console.WriteLine($"TaskCanceledException: {ex.Message}");
+            return (3, "请求超时", (null, null, null, null, null, null, null, null, null));
         }
+        catch (HttpRequestException ex)
+        {
+            Console.WriteLine($"HttpRequestException: {ex.Message}");
+            return (3, "没有获得天气信息", (null, null, null, null, null, null, null, null, null));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception: {ex.Message}");
+            return (3, "没有获得天气信息", (null, null, null, null, null, null, null, null, null));
+        }
+    }
+    public string GetTemperatureColor(string Temperature)
+    {
+        if (double.TryParse(Temperature.Replace("°C", ""), out double temp))
+        {
+            if (temp <= 0)
+            {
+                return "Blue"; // 寒冷
+            }
+            else if (temp > 0 && temp <= 15)
+            {
+                return "LightBlue"; // 凉爽
+            }
+            else if (temp > 15 && temp <= 25)
+            {
+                return "Green"; // 舒适
+            }
+            else if (temp > 25 && temp <= 35)
+            {
+                return "Orange"; // 温暖
+            }
+            else
+            {
+                return "Red"; // 炎热
+            }
+        }
+        return "White"; // 默认颜色
     }
 
     static readonly Dictionary<string, string> WWO_CODE = new Dictionary<string, string>

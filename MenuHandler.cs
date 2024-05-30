@@ -22,7 +22,7 @@ namespace _92CloudWallpaper
         private ToolStripMenuItem versionMenuItem;
         private ToolStripMenuItem settingsMenu;
         private ToolStripMenuItem clearCacheMenuItem;
-        private ToolStripMenuItem manageWallpapersMenuItem;
+        private ToolStripMenuItem manageWallpapersMenuItem = null;
         //public readonly string currentVersion; // 当前版本号
         private readonly int[] times = { 0, 60000, 600000, 1800000, 3600000, 86400000 };
         private readonly string[] intervals = { "暂停", "1 分钟", "10 分钟", "半小时", "1 小时", "1 天" };
@@ -279,6 +279,26 @@ namespace _92CloudWallpaper
                 Program.Restart();
             }
         }
+
+    public void AddManageWallpapersMenuItem()
+    {
+        if (manageWallpapersMenuItem == null)
+        {
+            manageWallpapersMenuItem = new ToolStripMenuItem("管理壁纸");
+            manageWallpapersMenuItem.DropDownItems.Add(new ToolStripMenuItem("发布壁纸", null, (sender, e) => Process.Start(new ProcessStartInfo("https://creators-pc-cn.levect.com/Content/publishworks") { UseShellExecute = true })));
+            manageWallpapersMenuItem.DropDownItems.Add(new ToolStripMenuItem("管理壁纸", null, (sender, e) => Process.Start(new ProcessStartInfo("https://creators-pc-cn.levect.com/Content/workmanagement") { UseShellExecute = true })));
+            trayIcon.ContextMenuStrip.Items.Insert(1, manageWallpapersMenuItem);
+        }
+    }
+
+    public void RemoveManageWallpapersMenuItem()
+    {
+        if (manageWallpapersMenuItem != null)
+        {
+            trayIcon.ContextMenuStrip.Items.Remove(manageWallpapersMenuItem);
+            manageWallpapersMenuItem = null;
+        }
+    }
 
         private void ApplicationExit()
         {

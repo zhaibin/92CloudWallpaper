@@ -30,7 +30,7 @@ namespace _92CloudWallpaper
             versionCheckTimer.Start();
         }
 
-        public async Task CheckForUpdateAsync()
+        public async Task CheckForUpdateAsync(bool notifyMessageBox = true)
         {
             using (var client = new WebClient())
             {
@@ -55,7 +55,8 @@ namespace _92CloudWallpaper
                     }
                     else
                     {
-                        ShowNoUpdateDialog();
+                        if (!notifyMessageBox)
+                            ShowNoUpdateDialog();
                     }
                 }
             }
