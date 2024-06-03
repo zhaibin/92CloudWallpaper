@@ -4,6 +4,7 @@ using System.Net;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Text.Json;
+using System.Net.Http;
 
 namespace _92CloudWallpaper
 {
@@ -32,6 +33,18 @@ namespace _92CloudWallpaper
 
         public async Task CheckForUpdateAsync(bool notifyMessageBox = true)
         {
+            if (!IsNetworkAvailable())
+            {
+                Console.WriteLine("No network connection available. 软件更新不可用。");
+                if (!notifyMessageBox) { 
+                    var result = MessageBox.Show("更新服务不可用，请检查网络并稍后再试。", "更新提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    if (result == DialogResult.OK)
+                    {
+                        // Do nothing, just close the dialog
+                    }
+                }
+                return;
+            }
             using (var client = new WebClient())
             {
                 client.Headers.Add("User-Agent", "request");
@@ -93,28 +106,36 @@ namespace _92CloudWallpaper
                         InfoLabel = { Text = "正在下载最新版本..." }
                     };
                     progressDialog.Show();
-
-                    client.DownloadProgressChanged += (s, ev) =>
+                    try
                     {
-                        progressDialog.ProgressBar.Value = ev.ProgressPercentage;
-                        progressDialog.InfoLabel.Text = $"已下载 {ev.BytesReceived / 1024} KB / {ev.TotalBytesToReceive / 1024} KB";
-                    };
 
-                    client.DownloadFileCompleted += (s, ev) =>
+                    
+                        client.DownloadProgressChanged += (s, ev) =>
+                        {
+                            progressDialog.ProgressBar.Value = ev.ProgressPercentage;
+                            progressDialog.InfoLabel.Text = $"已下载 {ev.BytesReceived / 1024} KB / {ev.TotalBytesToReceive / 1024} KB";
+                        };
+
+                        client.DownloadFileCompleted += (s, ev) =>
+                        {
+                            progressDialog.Close();
+                            if (ev.Error != null)
+                            {
+                                MessageBox.Show("下载失败：" + ev.Error.Message, "下载错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            }
+                            else
+                            {
+                                MessageBox.Show("下载完成，即将安装。", "下载完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                System.Diagnostics.Process.Start(installerPath);
+                            }
+                        };
+
+                        await client.DownloadFileTaskAsync(new Uri(downloadUrl), installerPath);
+                    }
+                    catch(Exception ex)
                     {
-                        progressDialog.Close();
-                        if (ev.Error != null)
-                        {
-                            MessageBox.Show("下载失败：" + ev.Error.Message, "下载错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        }
-                        else
-                        {
-                            MessageBox.Show("下载完成，即将安装。", "下载完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                            System.Diagnostics.Process.Start(installerPath);
-                        }
-                    };
-
-                    await client.DownloadFileTaskAsync(new Uri(downloadUrl), installerPath);
+                        Logger.LogError($"无法下载", ex);
+                    }
                 }
             }
             else
@@ -122,5 +143,32 @@ namespace _92CloudWallpaper
                 MessageBox.Show("下载文件出现异常。", "下载错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
+        private bool IsNetworkAvailable()
+        {
+            try
+            {
+                using (var client = new HttpClient())
+                {
+                    client.DefaultRequestHeaders.Add("User-Agent", Main.softwareName);
+                    var response = client.GetAsync(githubReleasesUrl).Result;
+                    if (response.IsSuccessStatusCode)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"API service responded with status code: {response.StatusCode}");
+                        return false;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Network check failed: {ex.Message}");
+                return false;
+            }
+        }
     }
+
+
 }

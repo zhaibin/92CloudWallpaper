@@ -38,21 +38,21 @@
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <Border Name="SpaceInfo" Grid.Row="0" Grid.Column="0" Height="140" >
+                <Border Name="SpaceInfo" Grid.Row="0" Grid.Column="0" Height="135" VerticalAlignment="Top">
                     <Grid Background="#30000000">
                         <StackPanel  Orientation="Horizontal">
                             <Grid  VerticalAlignment="Top" >
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="40"/>
-                                    <RowDefinition Name="ContentRow" Height="*"/>
+                                    <RowDefinition Name="ContentRow" Height="50"/>
                                     <RowDefinition Height="20"/>
                                     <RowDefinition Height="20"/>
                                 </Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="55"/>
+                                    <ColumnDefinition Width="55" />
                                     <ColumnDefinition Width="80"/>
                                     <ColumnDefinition Width="55"/>
-                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="85"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Left">
                                     <Image x:Name="AuthorUrl" Width="30" Height="40" Margin="5"/>
@@ -61,15 +61,13 @@
 
                                 <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" x:Name="PicContent" Text="" Foreground="White" Margin="5" TextWrapping="Wrap"  TextTrimming="CharacterEllipsis"/>
                                 
-                                <TextBlock Grid.Row="2" Grid.Column="0" Text="" x:Name="CurrentWallpaper_Label" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="" x:Name="CurrentWallpaper" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Left"/>
-                                <TextBlock Grid.Row="3" Grid.Column="0" Text="" x:Name="WallpaperCount_Label" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="" x:Name="WallpaperCount" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" />
                                 
-                                <TextBlock Grid.Row="2" Grid.Column="2" Text="" x:Name="ShootTime_Label" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="2" Grid.Column="3" Text="" x:Name="ShootTime" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" />
-                                <TextBlock Grid.Row="3" Grid.Column="2" Text="" x:Name="ShootAddr_Label" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                <TextBlock Grid.Row="3" Grid.Column="3" Text="" x:Name="ShootAddr" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="2" Text="" x:Name="WallpaperCount" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+
+                                <TextBlock Grid.Row="3" Grid.Column="0"  x:Name="ShootTime_Label" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Grid.Row="3" Grid.Column="1" Text="" x:Name="ShootTime" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" />
+                                <TextBlock Grid.Row="2" Grid.Column="0"  x:Name="ShootAddr_Label" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Text="" x:Name="ShootAddr" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" />
                             </Grid>
                         </StackPanel>
                     </Grid>
@@ -81,30 +79,31 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Border Grid.Row="1" Grid.Column="0" Width="80" Height="30">
+                    <Border Grid.Row="1" Grid.Column="0" Height="30">
                         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="5,0,0,0">
-                            <Button x:Name="PrevButton" Grid.Column="0" Width="20" Click="PrevButton_Click">
-                                <svgc:SvgViewbox  Source="/Resources/prev_icon.svg" />
-                            </Button>
-                            <Label x:Name="PrevLabel" VerticalAlignment="Center" MouseLeftButtonDown="PrevButton_Click" Cursor="Hand">上一张</Label>
+                                
                         </StackPanel>
                     </Border>
-                    <Border Grid.Row="1" Grid.Column="2" Width="80" Height="30">
+                    <Border Grid.Row="1" Grid.Column="2" Width="100" Height="30">
                         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,5,0">
-                            <Label x:Name="NextLabel" VerticalAlignment="Center" MouseLeftButtonDown="NextButton_Click" Cursor="Hand">下一张</Label>
-                            <Button x:Name="NextButton" Grid.Column="2" Width="20" Height="20" Click="NextButton_Click" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            
+                                <Button x:Name="PrevButton" Grid.Column="0" Width="20" Click="PrevButton_Click" Margin="5">
+                                    <svgc:SvgViewbox  Source="/Resources/prev_icon.svg" />
+                                </Button>
+                                <Button x:Name="PauseButton" Width="20" Click="PauseButton_Click" Margin="5">
+                                    <svgc:SvgViewbox  Source="/Resources/pause_icon.svg" />
+                                </Button>
+                                <Button x:Name="PlayButton" Width="20" Click="PlayButton_Click" Visibility="Collapsed" Margin="5">
+                                    <svgc:SvgViewbox  Source="/Resources/play_icon.svg" />
+                                </Button>
+                                <Button x:Name="NextButton" Grid.Column="2" Width="20" Height="20" Click="NextButton_Click" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5,0,0,0">
                                 <svgc:SvgViewbox  Source="/Resources/next_icon.svg" />
                             </Button>
                         </StackPanel>
                     </Border>
                         <Border Grid.Row="1" Grid.Column="1" Width="30" Height="30" HorizontalAlignment="Center">
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                <Button x:Name="PauseButton" Width="20" Click="PauseButton_Click">
-                                    <svgc:SvgViewbox  Source="/Resources/pause_icon.svg" />
-                                </Button>
-                                <Button x:Name="PlayButton" Width="20" Click="PlayButton_Click" Visibility="Collapsed">
-                                    <svgc:SvgViewbox  Source="/Resources/play_icon.svg" />
-                                </Button>
+                                
                             </StackPanel>
                         </Border>
                     </Grid>

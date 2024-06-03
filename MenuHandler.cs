@@ -30,7 +30,8 @@ namespace _92CloudWallpaper
 
         public MenuHandler(Main mainForm, NotifyIcon trayIcon, Timer timer)
         {
-            
+            var funcMessage = "菜单初始化";
+            Console.WriteLine($"{funcMessage}开始：{DateTime.Now}");
             this.mainForm = mainForm;
             this.trayIcon = trayIcon;
             this.timer = timer;
@@ -43,6 +44,7 @@ namespace _92CloudWallpaper
             {
                 ShowFloatWindow();
             }
+            Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
         }
 
         private void InitializeTrayIcon()

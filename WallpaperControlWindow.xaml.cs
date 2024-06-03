@@ -15,6 +15,8 @@ namespace _92CloudWallpaper
 
         public WallpaperControlWindow(Main mainForm, MenuHandler menuHandler)
         {
+            var funcMessage = "浮窗初始化";
+            Console.WriteLine($"{funcMessage}开始：{DateTime.Now}");
             InitializeComponent();
             
             MainForm = mainForm;
@@ -35,6 +37,7 @@ namespace _92CloudWallpaper
             //weatherService = new WeatherService();
             //InitializeWeatherUpdateTimer();
             InitializeImageInfoUpdateTimer();
+            Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
         }
         /*
         private void InitializeWeatherUpdateTimer()
@@ -47,10 +50,13 @@ namespace _92CloudWallpaper
         */
         private void InitializeImageInfoUpdateTimer()
         {
+            var funcMessage = "浮窗刷新计时器";
+            Console.WriteLine($"{funcMessage}开始：{DateTime.Now}");
             imageInfoUpdateTimer = new DispatcherTimer();
             imageInfoUpdateTimer.Interval = TimeSpan.FromSeconds(3); // 每2秒钟更新一次
             imageInfoUpdateTimer.Tick += (sender, e) => DisplayImageInfo();
             imageInfoUpdateTimer.Start();
+            Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
         }
         /*
         private async Task WeatherUpdateTimer_Tick(object sender, EventArgs e)
@@ -61,6 +67,8 @@ namespace _92CloudWallpaper
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            var funcMessage = "浮窗加载";
+            Console.WriteLine($"{funcMessage}开始：{DateTime.Now}");
             // 读取上次窗口位置
             if (!double.IsNaN(Properties.Settings.Default.LastWindowLeft) && !double.IsNaN(Properties.Settings.Default.LastWindowTop))
             {
@@ -75,11 +83,12 @@ namespace _92CloudWallpaper
                 this.Top = 30;
             }
             ShowInTaskbar = false;
-
+            //DisplayImageInfo();
+            Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
             // 加载天气信息
             //await LoadWeatherPage();
 
-            
+
         }
         /*
         private async Task LoadWeatherPage()
@@ -124,6 +133,8 @@ namespace _92CloudWallpaper
 */
         public void DisplayImageInfo()
         {
+            //var funcMessage = "浮窗信息显示";
+            //Console.WriteLine($"{funcMessage}开始：{MainForm.wallpaperCount} {DateTime.Now}");
             if (this.Dispatcher.CheckAccess())
             {
                 //Console.WriteLine($"InfoWindow Thread: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
@@ -131,10 +142,10 @@ namespace _92CloudWallpaper
 
                 if (MainForm.wallpaperCount > 0)
                 {
-                    CurrentWallpaper_Label.Text = "当前壁纸";
-                    CurrentWallpaper.Text = $"第 {(MainForm.currentWallpaperIndex + 1)} 张";
-                    WallpaperCount_Label.Text = "共有壁纸";
-                    WallpaperCount.Text = $"{MainForm.wallpaperCount} 张";
+                    //CurrentWallpaper_Label.Text = "当前壁纸";
+                    //CurrentWallpaper.Text = $"第 {(MainForm.currentWallpaperIndex + 1)} 张";
+                    //WallpaperCount_Label.Text = "共有壁纸";
+                    WallpaperCount.Text = $"{(MainForm.currentWallpaperIndex + 1)} / {MainForm.wallpaperCount}";
                 }
                 var imageInfo = MainForm.currentImageInfo; // 获取当前图片信息
                 if (imageInfo != null) {
@@ -169,7 +180,8 @@ namespace _92CloudWallpaper
                         ShootAddr_Label.Text = "";
                         ShootAddr.Text = "";
                     }
-                    AuthorUrl.Source = new BitmapImage(new Uri(imageInfo.AuthorUrl));
+                    //AuthorUrl.Source = new BitmapImage(new Uri(imageInfo.AuthorUrl));
+                    AuthorUrl.Source = ImageCacheManager.GetImage(imageInfo.AuthorUrl);
                     PicContent.Text = imageInfo.Description;
                     AuthorName.Text = imageInfo.AuthorName;
                     //PicContent.Text = currTime.ToString();
@@ -212,6 +224,7 @@ namespace _92CloudWallpaper
                     }
                 });
             }
+            //Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)

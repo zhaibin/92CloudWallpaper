@@ -13,6 +13,7 @@ namespace _92CloudWallpaper
         public int savedInterval { get; set; } = 600000; // 默认值为10分钟
         public string currentVersion ; // 当前版本号
         //private bool isPaused = false;
+        public const string softwareName = "CloudWallpaper";
         private MenuHandler menuHandler;
         private SoftwareUpdater softwareUpdater;
         private ImageCacheManager cacheManager;
@@ -32,20 +33,28 @@ namespace _92CloudWallpaper
                 timer = new Timer();
                 menuHandler = new MenuHandler(this, trayIcon, timer); // 先初始化
                 softwareUpdater = new SoftwareUpdater(this);
-                wallpaperControlWindow = new WallpaperControlWindow(this, menuHandler);
+                
                 
 
                 InitializeTimer(savedInterval);
-
-                Task.Run(() => InitializeCarouselAsync(cacheManager));
-
+                wallpaperCount = cacheManager.ImageInfos.Count;
+                if (wallpaperCount > 0)
+                {
+                    currentWallpaperIndex = cacheManager.CurrentIndex;
+                    currentImageInfo = cacheManager.ImageInfos[currentWallpaperIndex];
+                }
+                else 
+                {
+                    Task.Run(() => InitializeCarouselAsync(cacheManager));
+                }
                 // 检查更新
                 Task.Run(async () => await softwareUpdater.CheckForUpdateAsync());
+                wallpaperControlWindow = new WallpaperControlWindow(this, menuHandler);
             }
             catch (Exception ex)
             {
                 Logger.LogError("Error during initialization", ex);
-                cacheManager.DeleteCacheDirectory();
+                //cacheManager.DeleteCacheDirectory();
             }
         }
         public string GetCurrentVersion()
@@ -55,7 +64,7 @@ namespace _92CloudWallpaper
             // 获取程序集版本号
             //Version version = assembly.GetName().Version;
             //currentVersion = "v"+version.ToString();
-            currentVersion = "v0.3.3.0";
+            currentVersion = "v0.3.4.0";
             return currentVersion;
         }
         public async Task InitializeCarouselAsync(ImageCacheManager cacheManager)
@@ -93,7 +102,7 @@ namespace _92CloudWallpaper
 
         public async void CheckForUpdate(object sender, EventArgs e)
         {
-            await softwareUpdater.CheckForUpdateAsync();
+            await softwareUpdater.CheckForUpdateAsync(false);
         }
 
         public void UpdateVersionMenuItemText(string text)
@@ -118,7 +127,13 @@ namespace _92CloudWallpaper
 
                 if (cacheManager.CurrentIndex == cacheManager.ImageInfos.Count - 1)
                 {
-                    await cacheManager.LoadImagesAsync();
+                    try
+                    {
+                        await cacheManager.LoadImagesAsync();
+                    }
+                    catch (Exception ex) {
+                        Console.WriteLine($"Exception: {ex.Message}");
+                    }
                 }
             }
         }

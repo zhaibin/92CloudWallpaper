@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -34,7 +35,7 @@ namespace _92CloudWallpaper
         // 发送API请求的通用方法
         public async Task<string> SendApiRequestAsync(string url, object body)
         {
-            var messageID = ts + "0000000001";
+            var messageID = ts + GenerateRandomNumberString(10);
             var timeStamp = ts;
             var header = new Dictionary<string, object>
             {
@@ -104,11 +105,24 @@ namespace _92CloudWallpaper
             }
             return uuid;
         }
+
+        private static string GenerateRandomNumberString(int length)
+        {
+            var random = new Random();
+            var sb = new StringBuilder(length);
+            for (int i = 0; i < length; i++)
+            {
+                sb.Append(random.Next(0, 10));
+            }
+            return sb.ToString();
+        }
+
     }
 
     public static class GlobalData
     {
         public static int UserId = Properties.Settings.Default.UserId; // 定义一个静态变量
+        //public static int UserId = 23;
         public static int PageIndex = 1;
         public static int ImageIndex = 0;
         public static int LoginFlag = 0;
