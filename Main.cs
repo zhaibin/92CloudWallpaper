@@ -1,7 +1,14 @@
 ﻿using System;
-using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Forms;
+using System.Windows.Forms.Integration;
+using System.Windows.Threading;
+using System.Management;
+using static ImageCacheManager;
+using System.Collections.Generic;
 
 namespace _92CloudWallpaper
 {
@@ -9,89 +16,182 @@ namespace _92CloudWallpaper
     {
         private NotifyIcon trayIcon;
         private Timer timer;
+        public Timer idleTimer;
+        public static bool lockScreenInitialized = false;
         public int defaultInterval = 600000;
         public int savedInterval { get; set; } = 600000; // 默认值为10分钟
-        public string currentVersion ; // 当前版本号
-        //private bool isPaused = false;
-        public const string softwareName = "CloudWallpaper";
+        //public string CurrentVersion; // 当前版本号
+        public int idleThreshold;
         private MenuHandler menuHandler;
         private SoftwareUpdater softwareUpdater;
         private ImageCacheManager cacheManager;
-        private WallpaperControlWindow wallpaperControlWindow;
-
+        //private InfoHelper infoHelper;
+        private MainWebView mainWebView; // 添加对 MainWebView 的引用
+        public DesktopWindow desktopWindow;
+        private readonly Stats stats;
 
         public ImageCacheManager.ImageInfo currentImageInfo { get; set; } // 定义当前图片信息的成员变量
+        public string currentWallpaperFilePath;
         public int currentWallpaperIndex { get; set; }
         public int wallpaperCount { get; set; }
-        public Main()
+
+        public static Main Instance { get; private set; }
+
+        [DllImport("user32.dll")]
+        static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
+
+        public Main(bool isShowMain = true)
         {
             try
             {
+                Instance = this;
+                this.Text = InfoHelper.SoftwareInfo.NameCN;
                 cacheManager = new ImageCacheManager();
                 savedInterval = Properties.Settings.Default.SelectedInterval;
+                idleThreshold = Properties.Settings.Default.IdleThreshold; // 从设置中读取idleThreshold
                 trayIcon = new NotifyIcon();
                 timer = new Timer();
+                idleTimer = new Timer();
+                desktopWindow = new DesktopWindow(this);
                 menuHandler = new MenuHandler(this, trayIcon, timer); // 先初始化
                 softwareUpdater = new SoftwareUpdater(this);
                 
-                
-
                 InitializeTimer(savedInterval);
+                //InitializeIdleTimer();
+                stats = new Stats();
+                //启动统计上报
+                Task.Run(async () => await stats.ReportAsync(null, InfoHelper.StatsBehavior.StartApplication));
+
                 wallpaperCount = cacheManager.ImageInfos.Count;
                 if (wallpaperCount > 0)
                 {
                     currentWallpaperIndex = cacheManager.CurrentIndex;
-                    currentImageInfo = cacheManager.ImageInfos[currentWallpaperIndex];
+                    if (currentWallpaperIndex < wallpaperCount)
+                    {
+                        currentImageInfo = cacheManager.ImageInfos[currentWallpaperIndex];
+                    }
+                    else
+                    {
+                        currentImageInfo = null;
+                    }
                 }
-                else 
+                else
                 {
                     Task.Run(() => InitializeCarouselAsync(cacheManager));
                 }
+                
                 // 检查更新
                 Task.Run(async () => await softwareUpdater.CheckForUpdateAsync());
-                wallpaperControlWindow = new WallpaperControlWindow(this, menuHandler);
+                //LockScreenManager.Start("https://creators-pc-cn.levect.com/react/swiper");
+                //StartLockScreens();
+                // 初始化 MainWebView 实例
+                mainWebView = MainWebView.Instance(this);
+
+
+                ShowMainPage(isShowMain);
+                ShowNextImage();
+                
+
             }
             catch (Exception ex)
             {
                 Logger.LogError("Error during initialization", ex);
-                //cacheManager.DeleteCacheDirectory();
-            }
-        }
-        public string GetCurrentVersion()
-        {
-            // 获取当前程序集
-            //Assembly assembly = Assembly.GetExecutingAssembly();
-            // 获取程序集版本号
-            //Version version = assembly.GetName().Version;
-            //currentVersion = "v"+version.ToString();
-            currentVersion = "v0.3.4.0";
-            return currentVersion;
-        }
-        public async Task InitializeCarouselAsync(ImageCacheManager cacheManager)
-        {
-            await cacheManager.LoadImagesAsync();
-            if (cacheManager.ImageInfos.Count > 0 && cacheManager.ImageCache.ContainsKey(cacheManager.ImageInfos[cacheManager.CurrentIndex].Url))
-            {
-                UpdateImageDisplayAsync(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
-                timer.Start();
             }
         }
 
-        private void UpdateImageDisplayAsync(ImageCacheManager.ImageCacheItem cacheItem)
+        public void ShowMainPage(bool isShowMain = true)
+        {
+            if (isShowMain) 
+            {
+                ShowPreloadPage(InfoHelper.Urls.Store);
+            }
+        }
+
+
+        public void ShowLoginPage()
+        {
+            MainWebView mainWebView = MainWebView.Instance(this);
+            mainWebView.ShowPreloadedPage($"{InfoHelper.Urls.Login}");
+        }
+
+
+        public void ShowPreloadPage(string url)
+        {
+            
+            // 显示预加载的其他页面
+            MainWebView mainWebView = MainWebView.Instance(this);
+            mainWebView.ShowPreloadedPage(url);
+        }
+
+        public void ShowFloatWindow()
+        {
+
+            //desktopWindow.Show();
+            desktopWindow.Visibility = Visibility.Visible;
+
+
+        }
+
+        public void HideFloatWindow()
+        {
+            //desktopWindow?.Close();
+            desktopWindow.Visibility = Visibility.Hidden;
+        }
+
+
+
+        public async Task InitializeCarouselAsync(ImageCacheManager cacheManager)
+        {
+            await cacheManager.LoadImagesAsync(false, 5);
+            Console.WriteLine($"imageinfo count {cacheManager.ImageInfos.Count}   cacheManager.CurrentIndex {cacheManager.CurrentIndex}");
+            /*if (cacheManager.ImageInfos.Count > 0 && cacheManager.ImageCache.ContainsKey(cacheManager.ImageInfos[cacheManager.CurrentIndex].Url))
+            {
+                UpdateImageDisplayAsync(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
+                
+            }*/
+            if(cacheManager.ImageInfos.Count > 0)
+            {
+                currentWallpaperIndex = 0;
+                await UpdateImageDisplayAsync(cacheManager.ImageCache[cacheManager.ImageInfos[currentWallpaperIndex].Url]);
+            }
+            else
+            {
+                desktopWindow.Dispatcher.Invoke(() => {
+                    desktopWindow.DisplayImageInfo();
+                });
+            }
+            timer.Start();
+            //await cacheManager.LoadImagesAsync();
+        }
+        
+        private async Task UpdateImageDisplayAsync(ImageCacheManager.ImageCacheItem cacheItem)
         {
             try
             {
                 currentImageInfo = cacheItem.Info;
+                currentWallpaperFilePath = cacheItem.FilePath;
                 SetWallpaper(cacheItem.FilePath);
                 cacheManager.SaveCurrentPosition(cacheManager.CurrentIndex);
                 currentWallpaperIndex = cacheManager.CurrentIndex;
                 wallpaperCount = cacheManager.ImageInfos.Count;
+
+                
+                desktopWindow.Dispatcher.Invoke(() => {
+                    desktopWindow.DisplayImageInfo();
+                });
+
+                //await cacheManager.CacheImageSurround();
+
+                await stats.ReportAsync(currentImageInfo, InfoHelper.StatsBehavior.SetWallpaper);
+
+
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Failed to load image from {cacheItem.FilePath}. Exception: {ex.Message}");
             }
         }
+
 
         public void SetWallpaperChangeInterval(int interval)
         {
@@ -122,7 +222,13 @@ namespace _92CloudWallpaper
                 cacheManager.CurrentIndex = (cacheManager.CurrentIndex + 1) % cacheManager.ImageInfos.Count;
                 if (cacheManager.ImageCache.ContainsKey(cacheManager.ImageInfos[cacheManager.CurrentIndex].Url))
                 {
-                    UpdateImageDisplayAsync(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
+                    await UpdateImageDisplayAsync(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
+                }
+                else
+                {
+                    Console.WriteLine("下一张时，更新缓存图片");
+                    //await cacheManager.CacheImageSurround();
+
                 }
 
                 if (cacheManager.CurrentIndex == cacheManager.ImageInfos.Count - 1)
@@ -131,23 +237,37 @@ namespace _92CloudWallpaper
                     {
                         await cacheManager.LoadImagesAsync();
                     }
-                    catch (Exception ex) {
+                    catch (Exception ex)
+                    {
                         Console.WriteLine($"Exception: {ex.Message}");
                     }
                 }
             }
         }
 
-        public void ShowPrevImage()
+        public async void ShowPrevImage()
         {
             if (cacheManager.ImageInfos.Count > 0)
             {
                 cacheManager.CurrentIndex = (cacheManager.CurrentIndex - 1 + cacheManager.ImageInfos.Count) % cacheManager.ImageInfos.Count;
                 if (cacheManager.ImageCache.ContainsKey(cacheManager.ImageInfos[cacheManager.CurrentIndex].Url))
                 {
-                    UpdateImageDisplayAsync(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
+                    await UpdateImageDisplayAsync(cacheManager.ImageCache[cacheManager.ImageInfos[cacheManager.CurrentIndex].Url]);
+                }
+                else
+                {
+                    Console.WriteLine("上一张时，更新缓存图片");
+                    //await cacheManager.CacheImageSurround();
+                    
                 }
             }
+            
+        }
+        public async Task ImagesAsync()
+        {
+            await cacheManager.LoadImagesAsync();
+            
+            ShowNextImage();
         }
 
         [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
@@ -185,28 +305,34 @@ namespace _92CloudWallpaper
 
         public void Logout(object sender, EventArgs e)
         {
-            if (MessageBox.Show("您确定要登出吗？", "确认登出", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            if (System.Windows.Forms.MessageBox.Show("您确定要登出吗？", "确认登出", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
                 AttemptLogout();
-                //UpdateLoginMenuItem("登录", Login);
-                menuHandler.UpdateLoginMenuItem("登录", Login);
-
+                //menuHandler.UpdateLoginMenuItem("登录", Login);
             }
         }
 
-        private void AttemptLogout()
+        public void AttemptLogout()
         {
             Properties.Settings.Default.UserId = 0;
+            Properties.Settings.Default.Token = "";
             Properties.Settings.Default.Save();
 
             GlobalData.UserId = 0;
-            //GlobalData.LoginFlag = 0;
+            GlobalData.Token = "";
+
+            //mainWebView.ClearCookies();
+
             var cacheManagerNew = new ImageCacheManager();
-            cacheManagerNew.SaveVersionInfo(GetCurrentVersion(), GlobalData.UserId);
             
+            cacheManagerNew.SaveVersionInfo(InfoHelper.SoftwareInfo.CurrentVersion, GlobalData.UserId);
+
             Task.Run(() => InitializeCarouselAsync(cacheManagerNew));
             cacheManager = cacheManagerNew;
-            menuHandler.RemoveManageWallpapersMenuItem();
+            //menuHandler.RemoveManageWallpapersMenuItem();
+            //menuHandler.UpdateLoginMenuItem("登录", Login);
+            HideFloatWindow();
+
         }
 
         public void Login(object sender, EventArgs e)
@@ -214,31 +340,36 @@ namespace _92CloudWallpaper
             ShowLoginForm();
         }
 
-        private async void LoginSuccess()
+        public async void LoginSuccess()
         {
-            //UpdateLoginMenuItem("登出", Logout);
-            menuHandler.UpdateLoginMenuItem("登出", Logout);
-            menuHandler.AddManageWallpapersMenuItem();
-            var cacheManagerNew = new ImageCacheManager();
-            cacheManagerNew.SaveVersionInfo(GetCurrentVersion(), GlobalData.UserId);
-            cacheManager = cacheManagerNew;
-            await Task.Run(() => InitializeCarouselAsync(cacheManagerNew));
-            
-            
-            //ShowNextImage();
-
+            //menuHandler.UpdateLoginMenuItem("登出", Logout);
+            //menuHandler.AddManageWallpapersMenuItem();
+            try
+            {
+                var cacheManagerNew = new ImageCacheManager();
+                cacheManagerNew.SaveVersionInfo(InfoHelper.SoftwareInfo.CurrentVersion, GlobalData.UserId);
+                cacheManager = cacheManagerNew;
+                ShowFloatWindow();
+                await Task.Run(() => InitializeCarouselAsync(cacheManagerNew));
+            }
+            catch (Exception ex) 
+            {
+                Logger.LogError("Error during LoginSuccess", ex);
+            }
 
         }
 
         private void ShowLoginForm()
         {
-            using (LoginForm loginForm = new LoginForm())
-            {
-                if (loginForm.ShowDialog() == DialogResult.OK)
-                {
-                    LoginSuccess();
-                }
-            }
+            /* 
+             using (LoginForm loginForm = new LoginForm())
+             {
+                 if (loginForm.ShowDialog() == DialogResult.OK)
+                 {
+                     LoginSuccess();
+                 }
+             }*/
+            ShowLoginPage();
         }
 
         private void UpdateLoginMenuItem(string text, EventHandler clickEvent)
@@ -260,19 +391,46 @@ namespace _92CloudWallpaper
             ShowInTaskbar = false; // 移除任务栏图标
             base.OnLoad(e);
         }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             base.OnFormClosing(e);
             CleanupBeforeExit();
         }
 
-        private void CleanupBeforeExit()
+        public void CleanupBeforeExit()
         {
-            timer.Stop();
-            wallpaperControlWindow?.Close();
-            cacheManager.SaveCurrentPosition(cacheManager.CurrentIndex);
-            cacheManager.SaveVersionInfo(GetCurrentVersion(), GlobalData.UserId);
-            trayIcon.Dispose();
+            try
+            {
+                var funcMessage = "关闭程序前 数据清理";
+                Console.WriteLine($"{funcMessage}开始：{DateTime.Now}");
+                timer.Stop();
+                //HideFloatWindow();
+                if (desktopWindow != null)
+                {
+                    desktopWindow.Close();
+                }
+                //desktopWindow?.Close();
+            
+                cacheManager.SaveCurrentPosition(cacheManager.CurrentIndex);
+                cacheManager.SaveVersionInfo(InfoHelper.SoftwareInfo.CurrentVersion, GlobalData.UserId);
+                trayIcon.Dispose();
+                Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
+            }
+            catch(Exception ex)
+            {
+                Logger.LogError("关闭程序前", ex);
+            }
+            
         }
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct LASTINPUTINFO
+        {
+            public uint cbSize;
+            public uint dwTime;
+        }
+
+        
     }
 }

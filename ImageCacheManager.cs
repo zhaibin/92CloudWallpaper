@@ -12,6 +12,8 @@ using System.Net;
 using System.Windows.Media.Imaging;
 using System.Text;
 using System.Security.Cryptography;
+using System.Security.Policy;
+using System.Collections.Concurrent;
 
 public class ImageCacheManager
 {
@@ -21,8 +23,10 @@ public class ImageCacheManager
     private static string databaseFilePath;
     private static string cacheRootDirectory;
     private static readonly Dictionary<string, BitmapImage> memoryCache = new Dictionary<string, BitmapImage>();
-
-
+    private static readonly ConcurrentQueue<ImageCacheItem> insertQueue = new ConcurrentQueue<ImageCacheItem>();
+    private static readonly ConcurrentQueue<string> deleteQueue = new ConcurrentQueue<string>();
+    private static readonly object lockObject = new object();
+    private static bool isSyncing = false; // 标志位，防止重复同步
     public Dictionary<string, ImageCacheItem> ImageCache { get; private set; }
     public List<ImageInfo> ImageInfos { get; set; }
     private readonly int screenWidth = Screen.PrimaryScreen.Bounds.Width;
@@ -40,7 +44,7 @@ public class ImageCacheManager
             tempPath = Path.GetTempPath();
             cacheRootDirectory = Path.Combine(tempPath, "CloudWallpaper");
             cacheDirectory = Path.Combine(cacheRootDirectory, "U_" + GlobalData.UserId);
-            databaseFilePath = Path.Combine(cacheDirectory, "cache.db");
+            databaseFilePath = Path.Combine(cacheDirectory, "cache_v1.db");
             InitializeCacheDirectory();
             InitializeDatabase();
             LoadMetadata();
@@ -53,33 +57,43 @@ public class ImageCacheManager
         }
     }
 
-    public async Task LoadImagesAsync()
+    public async Task LoadImagesAsync(bool allPage = true, int pageSizeNew = 20)
     {
-        var funcMessage = "全量同步数据";
+        if (isSyncing)
+        {
+            Console.WriteLine("Another sync is already in progress. Skipping this call.");
+            return;
+        }
+
+        isSyncing = true; // 设置标志位，表示同步开始
+
+        var funcMessage = "增量同步数据";
         Console.WriteLine($"{funcMessage}开始：{DateTime.Now}");
+
         if (!IsNetworkAvailable())
         {
             Console.WriteLine("No network connection available. Skipping API calls and cache updates.");
+            isSyncing = false; // 重置标志位
             return;
         }
 
         int pageIndex = GlobalData.PageIndex;
-        int pageSize = 8;
+        int pageSize = pageSizeNew;
         var apiHandler = new ApiRequestHandler();
         var body = new SortedDictionary<string, object>
-        {
-            { "userId", GlobalData.UserId },
-            { "height", screenHeight },
-            { "pageIndex", pageIndex },
-            { "pageSize", pageSize },
-            { "width", screenWidth }
-        };
+    {
+        { "userId", GlobalData.UserId },
+        { "height", screenHeight },
+        { "pageIndex", pageIndex },
+        { "pageSize", pageSize },
+        { "width", screenWidth }
+    };
 
         bool morePages = true;
         HashSet<string> newImageUrls = new HashSet<string>();
         int retryCount = 0;
         int maxRetries = 3;
-        int delayMilliseconds = 3000;
+        int delayMilliseconds = 2000;
 
         while (morePages)
         {
@@ -96,29 +110,43 @@ public class ImageCacheManager
                 }
                 else
                 {
+                    var tasks = new List<Task>();
                     foreach (var newImageInfo in newImageInfos)
                     {
+                        newImageInfo.Url = newImageInfo.Url.Replace("@!webp", "");
                         newImageUrls.Add(newImageInfo.Url);
 
-                        if (ImageCache.TryGetValue(newImageInfo.Url, out var cachedItem))
+                        tasks.Add(Task.Run(async () =>
                         {
-                            if (!ImageInfoEquals(cachedItem.Info, newImageInfo))
+                            if (ImageCache.TryGetValue(newImageInfo.Url, out var cachedItem))
                             {
-                                ImageInfos.Remove(cachedItem.Info);
-                                ImageInfos.Add(newImageInfo);
-                                await CacheImageAsync(newImageInfo, true);
+                                if (!ImageInfoEquals(cachedItem.Info, newImageInfo))
+                                {
+                                    ImageInfos.Remove(cachedItem.Info);
+                                    ImageInfos.Add(newImageInfo);
+                                    await CacheImageAsync(newImageInfo, true);
+                                }
                             }
-                        }
-                        else
-                        {
-                            ImageInfos.Add(newImageInfo);
-                            await CacheImageAsync(newImageInfo, false);
-                        }
+                            else
+                            {
+                                ImageInfos.Add(newImageInfo);
+                                await CacheImageAsync(newImageInfo, false);
+                            }
+                        }));
                     }
+                    await Task.WhenAll(tasks);
+
                     Console.WriteLine($"{funcMessage}结束 请求第{pageIndex} 页：{DateTime.Now}");
-                    pageIndex++;
+                    if (allPage)
+                    {
+                        pageIndex++;
+                    }
+                    else
+                    {
+                        morePages = false;
+                    }
                     body["pageIndex"] = pageIndex;
-                    
+
                     await Task.Delay(delayMilliseconds);
                 }
             }
@@ -138,8 +166,12 @@ public class ImageCacheManager
             }
         }
 
-        ImageInfos = ImageInfos.OrderByDescending(i => i.CreateTime).ToList();
-        SyncCache(newImageUrls);
+        ImageInfos = ImageInfos.Where(i => i != null)
+                       .OrderByDescending(i => i.CreateTime)
+                       .ToList();
+        await SyncCache(newImageUrls);
+        GlobalData.LastUpdateTime = DateTime.Now; // 更新最后一次同步时间
+        isSyncing = false; // 重置标志位
         Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
     }
 
@@ -151,57 +183,74 @@ public class ImageCacheManager
         var listElement = jsonDocument.RootElement.GetProperty("body").GetProperty("list");
         var imageInfos = new List<ImageInfo>();
         Console.WriteLine($"{funcMessage} 返回数量：{listElement.EnumerateArray().Count()}");
-        foreach (var element in listElement.EnumerateArray())
+        try
         {
-            var imageInfo = new ImageInfo
+            foreach (var element in listElement.EnumerateArray())
             {
-                Url = element.GetProperty("url").GetString(),
-                Description = element.GetProperty("content").GetString(),
-                Location = element.GetProperty("addr").GetString(),
-                ShootTime = element.GetProperty("shootTime").GetString(),
-                ShootAddr = element.GetProperty("shootAddr").GetString(),
-                AuthorUrl = element.GetProperty("authorUrl").GetString(),
-                AuthorName = element.GetProperty("authorName").GetString(),
-                CreateTime = element.GetProperty("createtime").ToString()
-            };
-            imageInfos.Add(imageInfo);
+                var imageInfo = new ImageInfo
+                {
+                    Url = element.GetProperty("url").GetString(),
+                    Description = element.GetProperty("content").GetString(),
+                    Location = element.GetProperty("addr").GetString(),
+                    ShootTime = element.GetProperty("shootTime").GetString(),
+                    ShootAddr = element.GetProperty("shootAddr").GetString(),
+                    AuthorUrl = element.GetProperty("authorUrl").GetString(),
+                    AuthorName = element.GetProperty("authorName").GetString(),
+                    CreateTime = element.GetProperty("createtime").ToString(),
+                    GroupId = element.GetProperty("groupId").GetInt32(),
+                    AlbumId = element.GetProperty("albumId").GetInt32(),
+                    AuthorId = element.GetProperty("authorId").GetInt32()
+                };
+                imageInfos.Add(imageInfo);
+            }
+        }
+        catch (Exception ex) 
+        {
+            Logger.LogError($"{funcMessage}", ex);
         }
         Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
         return imageInfos;
-
     }
 
     private async Task CacheImageAsync(ImageInfo imageInfo, bool updateExisting)
     {
-        var funcMessage = "删除与下载图片，保存元数据";
+        var funcMessage = "下载图片，保存元数据";
         Console.WriteLine($"{funcMessage}开始：{DateTime.Now}");
-        var filePath = Path.Combine(cacheDirectory, Path.GetFileName(imageInfo.Url) + "");
+
+        imageInfo.Url = imageInfo.Url.Replace("@!webp", "");
+
+        Uri uri = new Uri(imageInfo.Url);
+        var filePath = Path.Combine(cacheDirectory, Path.GetFileNameWithoutExtension(uri.LocalPath) + Path.GetExtension(uri.LocalPath));
 
         if (updateExisting && File.Exists(filePath))
         {
-            File.Delete(filePath);
-        }
-
-        bool downloadSuccess = await DownloadImageAsync(imageInfo.Url, filePath);
-
-        if (downloadSuccess)
-        {
-            Console.WriteLine($"{funcMessage} 下载:{imageInfo.Url}");
+            Console.WriteLine($"{funcMessage} 缓存存在，不下载:{imageInfo.Url}");
             ImageCache[imageInfo.Url] = new ImageCacheItem { FilePath = filePath, Info = imageInfo };
-            SaveMetadata(imageInfo.Url, filePath, imageInfo.Description, imageInfo.Location, imageInfo.ShootTime, imageInfo.ShootAddr, imageInfo.AuthorUrl, imageInfo.AuthorName, imageInfo.CreateTime);
+            await SaveMetadataAsync(filePath, imageInfo);
         }
+        else
+        {
+            bool downloadSuccess = await DownloadImageAsync(imageInfo.Url, filePath);
+            if (downloadSuccess)
+            {
+                Console.WriteLine($"{funcMessage} 下载:{imageInfo.Url}");
+                ImageCache[imageInfo.Url] = new ImageCacheItem { FilePath = filePath, Info = imageInfo };
+                await SaveMetadataAsync(filePath, imageInfo);
+            }
+        }
+
         Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
     }
 
     private async Task<bool> DownloadImageAsync(string url, string filePath)
     {
         var funcMessage = "图片下载任务";
-        Console.WriteLine($"{funcMessage}开始：{url} {DateTime.Now}");
+        Console.WriteLine($"{funcMessage}开始：{url} , {filePath}, {DateTime.Now}");
         int maxRetry = 3;
         for (int retry = 0; retry < maxRetry; retry++)
         {
-            if (retry == 2)
-                url = url.Replace("@!webp","");
+            if (retry == 0)
+                url = url.Replace("@!webp", "");
             try
             {
                 var bytes = await httpClient.GetByteArrayAsync(url);
@@ -240,10 +289,9 @@ public class ImageCacheManager
         }
         Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
         return false;
-
     }
 
-    private void SyncCache(HashSet<string> newImageUrls)
+    private async Task SyncCache(HashSet<string> newImageUrls)
     {
         var funcMessage = "数据清理";
         Console.WriteLine($"{funcMessage}开始：{DateTime.Now}");
@@ -252,16 +300,24 @@ public class ImageCacheManager
         {
             if (!newImageUrls.Contains(url))
             {
-                var filePath = ImageCache[url].FilePath;
-                if (File.Exists(filePath))
+                try 
+                { 
+                    var filePath = ImageCache[url].FilePath;
+                    if (File.Exists(filePath))
+                    {
+                        //File.Delete(filePath);
+                        Console.WriteLine($"{funcMessage} 暂时不删除缓存图片文件 {filePath} {DateTime.Now}");
+                    }
+                }
+                catch (Exception ex)
                 {
-                    File.Delete(filePath);
-                    Console.WriteLine($"{funcMessage} 删除缓存文件 {filePath} {DateTime.Now}");
+                    Logger.LogError($"{funcMessage} 出现异常 .URL:{url}", ex);
                 }
                 ImageCache.Remove(url);
                 ImageInfos.RemoveAll(info => info.Url == url);
                 Console.WriteLine($"{funcMessage} 移除缓存 {url} {DateTime.Now}");
-                DeleteMetadata(url);
+                //DeleteMetadata(url);
+                await DeleteMetadataAsync(url);
             }
         }
         Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
@@ -320,7 +376,10 @@ public class ImageCacheManager
                                         ShootAddr TEXT,
                                         AuthorUrl TEXT,
                                         AuthorName TEXT,
-                                        CreateTime TEXT)";
+                                        CreateTime TEXT,
+                                        GroupId INTEGER,
+                                        AlbumId INTEGER,
+                                        AuthorId INTEGER)";
             using (var command = new SQLiteCommand(createTableQuery, connection))
             {
                 command.ExecuteNonQuery();
@@ -344,7 +403,7 @@ public class ImageCacheManager
     {
         var funcMessage = "数据字段检查";
         Console.WriteLine($"{funcMessage}开始：{DateTime.Now}");
-        
+
         using (var connection = new SQLiteConnection($"Data Source={databaseFilePath};Version=3;"))
         {
             connection.Open();
@@ -361,14 +420,19 @@ public class ImageCacheManager
                 }
             }
 
-            if (!columns.Contains("CreateTime"))
+            var requiredColumns = new List<string> { "CreateTime", "GroupId", "AlbumId", "AuthorId" };
+            foreach (var column in requiredColumns)
             {
-                string addColumnQuery = "ALTER TABLE ImageCache ADD COLUMN CreateTime TEXT";
-                using (var command = new SQLiteCommand(addColumnQuery, connection))
+                if (!columns.Contains(column))
                 {
-                    command.ExecuteNonQuery();
+                    string addColumnQuery = $"ALTER TABLE ImageCache ADD COLUMN {column} INTEGER";
+                    using (var command = new SQLiteCommand(addColumnQuery, connection))
+                    {
+                        command.ExecuteNonQuery();
+                    }
                 }
             }
+
             connection.Close();
         }
         Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
@@ -402,6 +466,9 @@ public class ImageCacheManager
                         var authorUrl = reader["AuthorUrl"].ToString();
                         var authorName = reader["AuthorName"].ToString();
                         var createTime = reader["CreateTime"].ToString();
+                        var groupId = Convert.ToInt32(reader["GroupId"]);
+                        var albumId = Convert.ToInt32(reader["AlbumId"]);
+                        var authorId = Convert.ToInt32(reader["AuthorId"]);
 
                         if (File.Exists(filePath))
                         {
@@ -414,7 +481,10 @@ public class ImageCacheManager
                                 ShootAddr = shootAddr,
                                 AuthorUrl = authorUrl,
                                 AuthorName = authorName,
-                                CreateTime = createTime
+                                CreateTime = createTime,
+                                GroupId = groupId,
+                                AlbumId = albumId,
+                                AuthorId = authorId
                             };
                             ImageCache[url] = new ImageCacheItem { FilePath = filePath, Info = imageInfo };
                             ImageInfos.Add(imageInfo);
@@ -427,14 +497,89 @@ public class ImageCacheManager
         ImageInfos = ImageInfos.OrderByDescending(i => i.CreateTime).ToList();
         Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
     }
+    public static Task SaveMetadataAsync(string filePath, ImageInfo info)
+    {
+        insertQueue.Enqueue(new ImageCacheItem
+        {
+            FilePath = filePath,
+            Info = info
+        });
 
-    private void SaveMetadata(string url, string filePath, string description, string location, string shootTime, string shootAddr, string authorUrl, string authorName, string createTime)
+        return Task.Run(() => ProcessInsertQueue());
+    }
+
+    public static Task DeleteMetadataAsync(string url)
+    {
+        deleteQueue.Enqueue(url);
+        return Task.Run(() => ProcessDeleteQueue());
+    }
+
+    private static void ProcessInsertQueue()
+    {
+        lock (lockObject)
+        {
+            using (var connection = new SQLiteConnection($"Data Source={databaseFilePath};Version=3;"))
+            {
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    while (insertQueue.TryDequeue(out var item))
+                    {
+                        string insertQuery = @"REPLACE INTO ImageCache (Url, FilePath, Description, Location, ShootTime, ShootAddr, AuthorUrl, AuthorName, CreateTime, GroupId, AlbumId, AuthorId)
+                                               VALUES (@url, @filePath, @description, @location, @shootTime, @shootAddr, @authorUrl, @authorName, @createTime, @groupId, @albumId, @authorId)";
+                        using (var command = new SQLiteCommand(insertQuery, connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@url", item.Info.Url);
+                            command.Parameters.AddWithValue("@filePath", item.FilePath);
+                            command.Parameters.AddWithValue("@description", item.Info.Description);
+                            command.Parameters.AddWithValue("@location", item.Info.Location);
+                            command.Parameters.AddWithValue("@shootTime", item.Info.ShootTime);
+                            command.Parameters.AddWithValue("@shootAddr", item.Info.ShootAddr);
+                            command.Parameters.AddWithValue("@authorUrl", item.Info.AuthorUrl);
+                            command.Parameters.AddWithValue("@authorName", item.Info.AuthorName);
+                            command.Parameters.AddWithValue("@createTime", item.Info.CreateTime);
+                            command.Parameters.AddWithValue("@groupId", item.Info.GroupId);
+                            command.Parameters.AddWithValue("@albumId", item.Info.AlbumId);
+                            command.Parameters.AddWithValue("@authorId", item.Info.AuthorId);
+                            command.ExecuteNonQuery();
+                        }
+                    }
+                    transaction.Commit();
+                }
+            }
+        }
+    }
+
+    private static void ProcessDeleteQueue()
+    {
+        lock (lockObject)
+        {
+            using (var connection = new SQLiteConnection($"Data Source={databaseFilePath};Version=3;"))
+            {
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    while (deleteQueue.TryDequeue(out var url))
+                    {
+                        string deleteQuery = "DELETE FROM ImageCache WHERE Url = @url";
+                        using (var command = new SQLiteCommand(deleteQuery, connection, transaction))
+                        {
+                            command.Parameters.AddWithValue("@url", url);
+                            command.ExecuteNonQuery();
+                        }
+                    }
+                    transaction.Commit();
+                }
+            }
+        }
+    }
+    private void SaveMetadata(string url, string filePath, string description, string location, string shootTime, string shootAddr, string authorUrl, string authorName, string createTime, int groupId, int albumId, int authorId)
     {
         using (var connection = new SQLiteConnection($"Data Source={databaseFilePath};Version=3;"))
         {
             connection.Open();
-            string insertQuery = @"REPLACE INTO ImageCache (Url, FilePath, Description, Location, ShootTime, ShootAddr, AuthorUrl, AuthorName, CreateTime)
-                                   VALUES (@url, @filePath, @description, @location, @shootTime, @shootAddr, @authorUrl, @authorName, @createTime)";
+            string insertQuery = @"REPLACE INTO ImageCache (Url, FilePath, Description, Location, ShootTime, ShootAddr, AuthorUrl, AuthorName, CreateTime, GroupId, AlbumId, AuthorId)
+                                   VALUES (@url, @filePath, @description, @location, @shootTime, @shootAddr, @authorUrl, @authorName, @createTime, @groupId, @albumId, @authorId)";
             using (var command = new SQLiteCommand(insertQuery, connection))
             {
                 command.Parameters.AddWithValue("@url", url);
@@ -446,6 +591,9 @@ public class ImageCacheManager
                 command.Parameters.AddWithValue("@authorUrl", authorUrl);
                 command.Parameters.AddWithValue("@authorName", authorName);
                 command.Parameters.AddWithValue("@createTime", createTime);
+                command.Parameters.AddWithValue("@groupId", groupId);
+                command.Parameters.AddWithValue("@albumId", albumId);
+                command.Parameters.AddWithValue("@authorId", authorId);
                 command.ExecuteNonQuery();
             }
         }
@@ -526,10 +674,17 @@ public class ImageCacheManager
 
     public void DeleteCacheDirectory()
     {
-        if (Directory.Exists(cacheDirectory))
+        try 
+        { 
+            if (Directory.Exists(cacheDirectory))
+            {
+                Directory.Delete(cacheDirectory, true);
+                Console.WriteLine("缓存目录已删除。");
+            }
+        }
+        catch 
         {
-            Directory.Delete(cacheDirectory, true);
-            Console.WriteLine("缓存目录已删除。");
+            return;
         }
     }
 
@@ -556,7 +711,11 @@ public class ImageCacheManager
                info1.ShootAddr == info2.ShootAddr &&
                info1.AuthorUrl == info2.AuthorUrl &&
                info1.AuthorName == info2.AuthorName &&
-               info1.CreateTime == info2.CreateTime;
+               info1.CreateTime == info2.CreateTime &&
+               info1.GroupId == info2.GroupId &&
+               info1.AlbumId == info2.AlbumId &&
+               info1.AuthorId == info2.AuthorId;
+               
     }
 
     private bool IsNetworkAvailable()
@@ -565,7 +724,7 @@ public class ImageCacheManager
         {
             using (var client = new HttpClient())
             {
-                client.DefaultRequestHeaders.Add("User-Agent", Main.softwareName);
+                client.DefaultRequestHeaders.Add("User-Agent", InfoHelper.SoftwareInfo.NameEN);
                 var response = client.GetAsync("https://cnapi.levect.com/social/hello").Result;
                 if (response.IsSuccessStatusCode)
                 {
@@ -698,6 +857,9 @@ public class ImageCacheManager
         public string AuthorUrl { get; set; }
         public string AuthorName { get; set; }
         public string CreateTime { get; set; }
+        public int GroupId { get; set; }
+        public int AlbumId { get; set; }
+        public int AuthorId { get; set; }
     }
 
     public class ImageCacheItem

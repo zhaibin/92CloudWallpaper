@@ -103,6 +103,8 @@
     <Reference Include="PresentationFramework" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Management" />
+    <Reference Include="System.Web" />
     <Reference Include="System.Xaml" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -118,6 +120,35 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ApiRequestHandler.cs" />
+    <Compile Include="InfoHelper.cs" />
+    <Compile Include="LockScreen.xaml.cs">
+      <DependentUpon>LockScreen.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="LockScreenWPF.xaml.cs">
+      <DependentUpon>LockScreenWPF.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="MainWebView.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MainWebView.Designer.cs">
+      <DependentUpon>MainWebView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Stats.cs" />
+    <Compile Include="Wallpaper.xaml.cs">
+      <DependentUpon>Wallpaper.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="LockScreenFormNew.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="LockScreenFormNew.Designer.cs">
+      <DependentUpon>LockScreenFormNew.cs</DependentUpon>
+    </Compile>
+    <Compile Include="WallpaperFormNew.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="WallpaperFormNew.Designer.cs">
+      <DependentUpon>WallpaperFormNew.cs</DependentUpon>
+    </Compile>
     <Compile Include="WeatherService.cs" />
     <Compile Include="Logger.cs" />
     <Compile Include="Main.cs">
@@ -143,11 +174,14 @@
     </Compile>
     <Compile Include="Settings.cs" />
     <Compile Include="SoftwareUpdater.cs" />
-    <Compile Include="WallpaperControlWindow.xaml.cs">
-      <DependentUpon>WallpaperControlWindow.xaml</DependentUpon>
+    <Compile Include="DesktopWindow.xaml.cs">
+      <DependentUpon>DesktopWindow.xaml</DependentUpon>
     </Compile>
     <EmbeddedResource Include="LoginForm.resx">
       <DependentUpon>LoginForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MainWebView.resx">
+      <DependentUpon>MainWebView.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -171,8 +205,17 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="appsettings.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Resource Include="Resources\home_icon.svg" />
+    <Resource Include="Resources\switch_icon.png" />
+    <Resource Include="Resources\time_icon.png" />
+    <Resource Include="Resources\time_icon.svg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="Resources\switch_icon.svg">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Resource>
     <Resource Include="Resources\next_icon.svg" />
     <Resource Include="Resources\pause_icon.svg" />
     <Resource Include="Resources\play_icon.svg" />
@@ -207,6 +250,9 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Web.WebView2">
+      <Version>1.0.2592.51</Version>
+    </PackageReference>
     <PackageReference Include="Newtonsoft.Json">
       <Version>13.0.3</Version>
     </PackageReference>
@@ -217,9 +263,24 @@
     <PackageReference Include="System.Text.Json">
       <Version>8.0.3</Version>
     </PackageReference>
+    <PackageReference Include="Transitionals">
+      <Version>2023.11.15.1</Version>
+    </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <Page Include="WallpaperControlWindow.xaml">
+    <Page Include="LockScreen.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="LockScreenWPF.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Wallpaper.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="DesktopWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

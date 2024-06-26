@@ -13,7 +13,8 @@ namespace _92CloudWallpaper
         private readonly Main mainForm;
         private readonly NotifyIcon trayIcon;
         private readonly Timer timer;
-        private WallpaperControlWindow floatWindow;
+        //private DesktopWindow floatWindow;
+        //private Wallpaper wallpaper;
 
         private ToolStripMenuItem loginMenuItem;
         private ToolStripMenuItem autoStartMenuItem;
@@ -23,11 +24,15 @@ namespace _92CloudWallpaper
         private ToolStripMenuItem settingsMenu;
         private ToolStripMenuItem clearCacheMenuItem;
         private ToolStripMenuItem manageWallpapersMenuItem = null;
-        //public readonly string currentVersion; // 当前版本号
+        private ToolStripMenuItem wallpaperMenuItem;
+        private ToolStripMenuItem uiStoreMenuItem;
+        private ToolStripMenuItem uiPostMenuItem;
+        //public readonly string CurrentVersion; // 当前版本号
         private readonly int[] times = { 0, 60000, 600000, 1800000, 3600000, 86400000 };
         private readonly string[] intervals = { "暂停", "1 分钟", "10 分钟", "半小时", "1 小时", "1 天" };
         private int previousInterval;
-
+        //private LoginHelper loginHelper;
+        //private InfoHelper infoHelper;
         public MenuHandler(Main mainForm, NotifyIcon trayIcon, Timer timer)
         {
             var funcMessage = "菜单初始化";
@@ -35,15 +40,17 @@ namespace _92CloudWallpaper
             this.mainForm = mainForm;
             this.trayIcon = trayIcon;
             this.timer = timer;
-            floatWindow = new WallpaperControlWindow(mainForm, this);
+            //floatWindow = new DesktopWindow(mainForm, this);
 
             this.previousInterval = mainForm.savedInterval;
+            //infoHelper = new InfoHelper();
             InitializeTrayIcon();
 
-            if (Properties.Settings.Default.IsFloatWindowVisible)
+            if (Properties.Settings.Default.IsFloatWindowVisible && Properties.Settings.Default.UserId != 0)
             {
-                ShowFloatWindow();
+                mainForm.ShowFloatWindow();
             }
+            
             Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
         }
 
@@ -53,6 +60,8 @@ namespace _92CloudWallpaper
             {
                 Font = SystemFonts.MenuFont
             };
+            // 创建分割线
+            ToolStripSeparator separator = new ToolStripSeparator();
 
             changeWallpaperMenu = new ToolStripMenuItem("更换壁纸");
             for (int i = 0; i < intervals.Length; i++)
@@ -66,18 +75,21 @@ namespace _92CloudWallpaper
             if (Properties.Settings.Default.UserId == 0)
             {
                 loginMenuItem = new ToolStripMenuItem("登录", null, mainForm.Login);
-                trayMenu.Items.Add(loginMenuItem);
+                
             }
             else
             {
                 loginMenuItem = new ToolStripMenuItem("登出", null, mainForm.Logout);
-                trayMenu.Items.Add(loginMenuItem);
-                manageWallpapersMenuItem = new ToolStripMenuItem("管理壁纸");
-                manageWallpapersMenuItem.DropDownItems.Add(new ToolStripMenuItem("发布壁纸", null, (sender, e) => Process.Start(new ProcessStartInfo("https://creators-pc-cn.levect.com/Content/publishworks") { UseShellExecute = true })));
-                manageWallpapersMenuItem.DropDownItems.Add(new ToolStripMenuItem("管理壁纸", null, (sender, e) => Process.Start(new ProcessStartInfo("https://creators-pc-cn.levect.com/Content/workmanagement") { UseShellExecute = true })));
-                trayMenu.Items.Add(manageWallpapersMenuItem);
+                
+                
             }
+            //trayMenu.Items.Add(loginMenuItem);
+            uiStoreMenuItem = new ToolStripMenuItem("壁纸商店", null, (sender, e) => mainForm.ShowPreloadPage(InfoHelper.Urls.Store));
+            uiPostMenuItem = new ToolStripMenuItem("本地上传", null, (sender, e) => mainForm.ShowPreloadPage(InfoHelper.Urls.Post));
             
+            trayMenu.Items.Add(uiStoreMenuItem);
+            trayMenu.Items.Add(uiPostMenuItem);
+            trayMenu.Items.Add(separator);
 
             settingsMenu = new ToolStripMenuItem("软件设置");
 
@@ -95,13 +107,18 @@ namespace _92CloudWallpaper
 
             clearCacheMenuItem = new ToolStripMenuItem("清理缓存", null, ClearCache);
 
+            wallpaperMenuItem = new ToolStripMenuItem("打开锁屏", null, WallpaperShow);
+
             settingsMenu.DropDownItems.Add(autoStartMenuItem);
             settingsMenu.DropDownItems.Add(floatWindowMenuItem);
             settingsMenu.DropDownItems.Add(clearCacheMenuItem);
+#if DEBUG
+            settingsMenu.DropDownItems.Add(wallpaperMenuItem);
+#endif
 
             trayMenu.Items.Add(settingsMenu);
             trayMenu.Items.Add(changeWallpaperMenu);
-            versionMenuItem = new ToolStripMenuItem($"版本 {mainForm.GetCurrentVersion()}");
+            versionMenuItem = new ToolStripMenuItem($"版本 {InfoHelper.SoftwareInfo.CurrentVersion}");
             versionMenuItem.Click += mainForm.CheckForUpdate;
 
             trayMenu.Items.Add(versionMenuItem);
@@ -111,7 +128,7 @@ namespace _92CloudWallpaper
             trayIcon.Icon = trayIconImage;
             trayIcon.ContextMenuStrip = trayMenu;
             trayIcon.Visible = true;
-            trayIcon.Text = "92云壁纸";
+            trayIcon.Text = InfoHelper.SoftwareInfo.NameCN;
             trayIcon.MouseClick += TrayIcon_MouseClick;
         }
 
@@ -156,6 +173,35 @@ namespace _92CloudWallpaper
                 UpdateFloatWindowButtons(false);
             }
         }
+        private void WallpaperShow(object sender, EventArgs e)
+        {
+            
+
+
+            foreach (var screen in Screen.AllScreens)
+            {
+                LockScreenFormNew lockScreenForm = new LockScreenFormNew(screen);
+                lockScreenForm.ShowForm();
+            }
+            //wallpaper.ChangeUrl("https://creators-pc-cn.levect.com/react/swiper");
+
+            // 初始化所有屏幕的 Wallpaper 窗口
+            //mainForm.ShowNextImage();
+
+            // 启动LockScreenManager并加载URL
+            //LockScreenManager.Start("https://creators-pc-cn.levect.com/react/swiper");
+
+            // 模拟其他程序调用展示方法
+            //LockScreenManager.Show();
+            //LockScreen.ChangeAllWallpapersUrl("https://www.baidu.com/");
+            //LockScreenForm.ShowContentOnAllScreens("C:\\Users\\xuant\\AppData\\Local\\Temp\\CloudWallpaper\\U_60587\\5e050506528c9a5acac540ea6421cbf0.jpg@!webp", false);
+
+            //mainForm.ShowOtherPage(InfoHelper.Urls.Store);
+            //mainForm.ShowPreloadPage("https://hk-h5.oss-cn-hangzhou.aliyuncs.com/test.html");
+
+
+
+        }
 
         private void ToggleAutoStart(object sender, EventArgs e)
         {
@@ -170,7 +216,7 @@ namespace _92CloudWallpaper
 
                 if (enable)
                 {
-                    key.SetValue(Application.ProductName, Application.ExecutablePath);
+                    key.SetValue(Application.ProductName, Application.ExecutablePath + " /hideMainPage");
                 }
                 else
                 {
@@ -181,8 +227,10 @@ namespace _92CloudWallpaper
 
         private bool IsApplicationAutoStarting()
         {
+            Console.WriteLine(Application.ProductName);
             using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false))
             {
+                //Console.WriteLine(key?.GetValue(Application.ProductName));
                 return key?.GetValue(Application.ProductName) != null;
             }
         }
@@ -191,28 +239,19 @@ namespace _92CloudWallpaper
         {
             if (floatWindowMenuItem.Checked)
             {
-                ShowFloatWindow();
+                mainForm.ShowFloatWindow();
+                floatWindowMenuItem.Checked = true;
             }
             else
             {
-                HideFloatWindow();
+                mainForm.HideFloatWindow();
+                floatWindowMenuItem.Checked = false;
             }
             Properties.Settings.Default.IsFloatWindowVisible = floatWindowMenuItem.Checked;
             Properties.Settings.Default.Save();
         }
 
-        private void ShowFloatWindow()
-        {
-            floatWindow = new WallpaperControlWindow(mainForm, this);
-            floatWindow.Show();
-            floatWindowMenuItem.Checked = true;
-        }
-
-        private void HideFloatWindow()
-        {
-            floatWindow.Close();
-            floatWindowMenuItem.Checked = false;
-        }
+        
 
         public void UpdateLoginMenuItem(string text, EventHandler clickEvent)
         {
@@ -235,6 +274,7 @@ namespace _92CloudWallpaper
 
         public void UpdateFloatWindowButtons(bool isPlaying)
         {
+            var floatWindow = mainForm.desktopWindow;
             floatWindow?.UpdatePlayPauseButtons(isPlaying);
         }
 
@@ -282,25 +322,25 @@ namespace _92CloudWallpaper
             }
         }
 
-    public void AddManageWallpapersMenuItem()
-    {
-        if (manageWallpapersMenuItem == null)
+        public void AddManageWallpapersMenuItem()
         {
-            manageWallpapersMenuItem = new ToolStripMenuItem("管理壁纸");
-            manageWallpapersMenuItem.DropDownItems.Add(new ToolStripMenuItem("发布壁纸", null, (sender, e) => Process.Start(new ProcessStartInfo("https://creators-pc-cn.levect.com/Content/publishworks") { UseShellExecute = true })));
-            manageWallpapersMenuItem.DropDownItems.Add(new ToolStripMenuItem("管理壁纸", null, (sender, e) => Process.Start(new ProcessStartInfo("https://creators-pc-cn.levect.com/Content/workmanagement") { UseShellExecute = true })));
-            trayIcon.ContextMenuStrip.Items.Insert(1, manageWallpapersMenuItem);
+            if (manageWallpapersMenuItem == null)
+            {
+                manageWallpapersMenuItem = new ToolStripMenuItem("管理壁纸");
+                manageWallpapersMenuItem.DropDownItems.Add(new ToolStripMenuItem("本地上传", null, (sender, e) => mainForm.ShowPreloadPage(InfoHelper.Urls.Post)));
+                manageWallpapersMenuItem.DropDownItems.Add(new ToolStripMenuItem("壁纸商店", null, (sender, e) => mainForm.ShowPreloadPage(InfoHelper.Urls.Store)));
+                trayIcon.ContextMenuStrip.Items.Insert(1, manageWallpapersMenuItem);
+            }
         }
-    }
 
-    public void RemoveManageWallpapersMenuItem()
-    {
-        if (manageWallpapersMenuItem != null)
+        public void RemoveManageWallpapersMenuItem()
         {
-            trayIcon.ContextMenuStrip.Items.Remove(manageWallpapersMenuItem);
-            manageWallpapersMenuItem = null;
+            if (manageWallpapersMenuItem != null)
+            {
+                trayIcon.ContextMenuStrip.Items.Remove(manageWallpapersMenuItem);
+                manageWallpapersMenuItem = null;
+            }
         }
-    }
 
         private void ApplicationExit()
         {

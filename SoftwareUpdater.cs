@@ -12,12 +12,15 @@ namespace _92CloudWallpaper
     {
         private readonly Main mainForm;
         private readonly string githubReleasesUrl = "https://api.github.com/repos/zhaibin/92CloudWallpaper/releases/latest";
+        private readonly string aliyunSoftwareVersion = "https://hk-content.oss-cn-hangzhou.aliyuncs.com/92CloudWallpaperVersion/version.txt";
+        private const string flagServer = "aliyun";
         private Timer versionCheckTimer;
         private string downloadUrl = "";
-
+        //private InfoHelper infoHelper;
         public SoftwareUpdater(Main mainForm)
         {
             this.mainForm = mainForm;
+            //infoHelper = new InfoHelper();
             InitializeVersionCheckTimer();
         }
 
@@ -33,6 +36,7 @@ namespace _92CloudWallpaper
 
         public async Task CheckForUpdateAsync(bool notifyMessageBox = true)
         {
+            string versionUrl = "";
             if (!IsNetworkAvailable())
             {
                 Console.WriteLine("No network connection available. 软件更新不可用。");
@@ -49,7 +53,15 @@ namespace _92CloudWallpaper
             {
                 client.Headers.Add("User-Agent", "request");
                 client.Encoding = System.Text.Encoding.UTF8;  // 确保处理 UTF-8 编码
-                var response = await client.DownloadStringTaskAsync(githubReleasesUrl);
+                if(flagServer == "aliyun")
+                {
+                    versionUrl = aliyunSoftwareVersion;
+                }
+                else 
+                {
+                    versionUrl = githubReleasesUrl;
+                }
+                var response = await client.DownloadStringTaskAsync(versionUrl);
                 using (JsonDocument doc = JsonDocument.Parse(response))
                 {
                     var latestVersion = doc.RootElement.GetProperty("tag_name").GetString();
@@ -62,7 +74,7 @@ namespace _92CloudWallpaper
                         MessageBox.Show($"An error occurred: {ex.Message}.URL{downloadUrl}");
                     }
 
-                    if (latestVersion != mainForm.GetCurrentVersion())
+                    if (latestVersion != InfoHelper.SoftwareInfo.CurrentVersion)
                     {
                         ShowUpdateDialog();
                     }
@@ -149,8 +161,8 @@ namespace _92CloudWallpaper
             {
                 using (var client = new HttpClient())
                 {
-                    client.DefaultRequestHeaders.Add("User-Agent", Main.softwareName);
-                    var response = client.GetAsync(githubReleasesUrl).Result;
+                    client.DefaultRequestHeaders.Add("User-Agent", InfoHelper.SoftwareInfo.NameEN);
+                    var response = client.GetAsync(aliyunSoftwareVersion).Result;
                     if (response.IsSuccessStatusCode)
                     {
                         return true;

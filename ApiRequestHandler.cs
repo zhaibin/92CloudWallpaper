@@ -17,7 +17,7 @@ namespace _92CloudWallpaper
         private readonly string _apiKey;
         private readonly string ts = GenerateFormattedTimestamp();
         public string userId = "0";
-        private readonly string _uuid;
+        public readonly string _uuid;
 
         public ApiRequestHandler()
         {
@@ -41,8 +41,8 @@ namespace _92CloudWallpaper
             {
                 { "messageID", messageID },
                 { "timeStamp", timeStamp },
-                { "terminal", 1 },
-                { "version", "0.1" },
+                { "terminal", 10 },
+                { "version", InfoHelper.SoftwareInfo.CurrentVersion },
                 { "companyId", "10120" },
                 { "countryCode", "+86" },
                 { "did", _uuid }
@@ -119,12 +119,5 @@ namespace _92CloudWallpaper
 
     }
 
-    public static class GlobalData
-    {
-        public static int UserId = Properties.Settings.Default.UserId; // 定义一个静态变量
-        //public static int UserId = 23;
-        public static int PageIndex = 1;
-        public static int ImageIndex = 0;
-        public static int LoginFlag = 0;
-    }
+    
 }

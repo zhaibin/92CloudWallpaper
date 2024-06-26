@@ -16,10 +16,12 @@ namespace _92CloudWallpaper
         // 唯一的Mutex名称
         private static string mutexName = "92CloudWallpaper";
         private static Mutex mutex;
-
+        private static Main mainForm;
+       
         [STAThread]
         static void Main(string[] args)
         {
+
             bool createdNew;
             mutex = new Mutex(true, mutexName, out createdNew);
 
@@ -32,13 +34,33 @@ namespace _92CloudWallpaper
                     return;
                 }
             }
+            
 
             Application.ApplicationExit += new EventHandler(OnApplicationExit);
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new Main());
+            //Wallpaper.SetupWallpapersForAllScreens();
+            
+            // 检查命令行参数
+            //if (args.Length > 0 && args[0] == "openStore")
+            //{
+            //    mainForm.ShowPreloadPage(InfoHelper.Urls.Store);
+            //}
 
+            if (args.Length > 0 && args[0] == "/hideMainPage")
+            {
+                mainForm = new Main(false);
+                //mainForm.ShowPreloadPage(InfoHelper.Urls.Store);
+            }
+            else
+            {
+                mainForm = new Main(true);
+            }
+            
+            Application.Run(mainForm);
+            
+            
             // 在此处不再调用 mutex.ReleaseMutex();
         }
 
@@ -50,6 +72,7 @@ namespace _92CloudWallpaper
                 mutex.ReleaseMutex();
                 mutex = null;
             }
+            //mainForm.CleanupBeforeExit();
         }
 
         public static void Restart()
@@ -67,5 +90,6 @@ namespace _92CloudWallpaper
             // 退出当前实例
             Application.Exit();
         }
+
     }
 }
