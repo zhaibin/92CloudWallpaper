@@ -17,7 +17,7 @@ namespace _92CloudWallpaper
         {
             public static string NameCN = "92云壁纸";
             public static string NameEN = "92CloudWallpaper";
-            public static string CurrentVersion = "v0.4.1.1";
+            public static string CurrentVersion = "v0.4.2.0";
         }
 
         public static class Urls

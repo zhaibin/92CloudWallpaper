@@ -122,6 +122,11 @@ namespace _92CloudWallpaper
 
         public void ShowPreloadedPage(string url)
         {
+            // 检查窗口当前状态，如果最小化，则恢复到正常状态
+            if (this.WindowState == FormWindowState.Minimized)
+            {
+                this.WindowState = FormWindowState.Normal;
+            }
             if (preloadedPages.ContainsKey(url))
             {
                 webView.CoreWebView2.Navigate(url);

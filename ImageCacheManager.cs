@@ -26,7 +26,7 @@ public class ImageCacheManager
     private static readonly ConcurrentQueue<ImageCacheItem> insertQueue = new ConcurrentQueue<ImageCacheItem>();
     private static readonly ConcurrentQueue<string> deleteQueue = new ConcurrentQueue<string>();
     private static readonly object lockObject = new object();
-    private static bool isSyncing = false; // 标志位，防止重复同步
+
     public Dictionary<string, ImageCacheItem> ImageCache { get; private set; }
     public List<ImageInfo> ImageInfos { get; set; }
     private readonly int screenWidth = Screen.PrimaryScreen.Bounds.Width;
@@ -59,21 +59,11 @@ public class ImageCacheManager
 
     public async Task LoadImagesAsync(bool allPage = true, int pageSizeNew = 20)
     {
-        if (isSyncing)
-        {
-            Console.WriteLine("Another sync is already in progress. Skipping this call.");
-            return;
-        }
-
-        isSyncing = true; // 设置标志位，表示同步开始
-
-        var funcMessage = "增量同步数据";
+        var funcMessage = "全量同步数据";
         Console.WriteLine($"{funcMessage}开始：{DateTime.Now}");
-
         if (!IsNetworkAvailable())
         {
             Console.WriteLine("No network connection available. Skipping API calls and cache updates.");
-            isSyncing = false; // 重置标志位
             return;
         }
 
@@ -81,13 +71,13 @@ public class ImageCacheManager
         int pageSize = pageSizeNew;
         var apiHandler = new ApiRequestHandler();
         var body = new SortedDictionary<string, object>
-    {
-        { "userId", GlobalData.UserId },
-        { "height", screenHeight },
-        { "pageIndex", pageIndex },
-        { "pageSize", pageSize },
-        { "width", screenWidth }
-    };
+        {
+            { "userId", GlobalData.UserId },
+            { "height", screenHeight },
+            { "pageIndex", pageIndex },
+            { "pageSize", pageSize },
+            { "width", screenWidth }
+        };
 
         bool morePages = true;
         HashSet<string> newImageUrls = new HashSet<string>();
@@ -110,32 +100,28 @@ public class ImageCacheManager
                 }
                 else
                 {
-                    var tasks = new List<Task>();
                     foreach (var newImageInfo in newImageInfos)
                     {
+                        //强制将webp改成jpg 开始
                         newImageInfo.Url = newImageInfo.Url.Replace("@!webp", "");
+                        //强制将webp改成jpg 结束
                         newImageUrls.Add(newImageInfo.Url);
 
-                        tasks.Add(Task.Run(async () =>
+                        if (ImageCache.TryGetValue(newImageInfo.Url, out var cachedItem))
                         {
-                            if (ImageCache.TryGetValue(newImageInfo.Url, out var cachedItem))
+                            if (!ImageInfoEquals(cachedItem.Info, newImageInfo))
                             {
-                                if (!ImageInfoEquals(cachedItem.Info, newImageInfo))
-                                {
-                                    ImageInfos.Remove(cachedItem.Info);
-                                    ImageInfos.Add(newImageInfo);
-                                    await CacheImageAsync(newImageInfo, true);
-                                }
-                            }
-                            else
-                            {
+                                ImageInfos.Remove(cachedItem.Info);
                                 ImageInfos.Add(newImageInfo);
-                                await CacheImageAsync(newImageInfo, false);
+                                await CacheImageAsync(newImageInfo, true);
                             }
-                        }));
+                        }
+                        else
+                        {
+                            ImageInfos.Add(newImageInfo);
+                            await CacheImageAsync(newImageInfo, false);
+                        }
                     }
-                    await Task.WhenAll(tasks);
-
                     Console.WriteLine($"{funcMessage}结束 请求第{pageIndex} 页：{DateTime.Now}");
                     if (allPage)
                     {
@@ -166,12 +152,8 @@ public class ImageCacheManager
             }
         }
 
-        ImageInfos = ImageInfos.Where(i => i != null)
-                       .OrderByDescending(i => i.CreateTime)
-                       .ToList();
+        ImageInfos = ImageInfos.OrderByDescending(i => i.CreateTime).ToList();
         await SyncCache(newImageUrls);
-        GlobalData.LastUpdateTime = DateTime.Now; // 更新最后一次同步时间
-        isSyncing = false; // 重置标志位
         Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
     }
 
@@ -204,7 +186,7 @@ public class ImageCacheManager
                 imageInfos.Add(imageInfo);
             }
         }
-        catch (Exception ex) 
+        catch (Exception ex)
         {
             Logger.LogError($"{funcMessage}", ex);
         }
@@ -216,25 +198,34 @@ public class ImageCacheManager
     {
         var funcMessage = "下载图片，保存元数据";
         Console.WriteLine($"{funcMessage}开始：{DateTime.Now}");
-
+        //强制将webp改成jpg 开始
         imageInfo.Url = imageInfo.Url.Replace("@!webp", "");
-
+        //强制将webp改成jpg 结束
         Uri uri = new Uri(imageInfo.Url);
+        
         var filePath = Path.Combine(cacheDirectory, Path.GetFileNameWithoutExtension(uri.LocalPath) + Path.GetExtension(uri.LocalPath));
 
         if (updateExisting && File.Exists(filePath))
         {
+            //暂不删除文件
+            //File.Delete(filePath);
+        }
+        if (File.Exists(filePath))
+        {
             Console.WriteLine($"{funcMessage} 缓存存在，不下载:{imageInfo.Url}");
             ImageCache[imageInfo.Url] = new ImageCacheItem { FilePath = filePath, Info = imageInfo };
+            //SaveMetadata(imageInfo.Url, filePath, imageInfo.Description, imageInfo.Location, imageInfo.ShootTime, imageInfo.ShootAddr, imageInfo.AuthorUrl, imageInfo.AuthorName, imageInfo.CreateTime, imageInfo.GroupId, imageInfo.AlbumId, imageInfo.AuthorId);
             await SaveMetadataAsync(filePath, imageInfo);
         }
         else
         {
             bool downloadSuccess = await DownloadImageAsync(imageInfo.Url, filePath);
+
             if (downloadSuccess)
             {
                 Console.WriteLine($"{funcMessage} 下载:{imageInfo.Url}");
                 ImageCache[imageInfo.Url] = new ImageCacheItem { FilePath = filePath, Info = imageInfo };
+                //SaveMetadata(imageInfo.Url, filePath, imageInfo.Description, imageInfo.Location, imageInfo.ShootTime, imageInfo.ShootAddr, imageInfo.AuthorUrl, imageInfo.AuthorName, imageInfo.CreateTime, imageInfo.GroupId, imageInfo.AlbumId, imageInfo.AuthorId);
                 await SaveMetadataAsync(filePath, imageInfo);
             }
         }
@@ -289,6 +280,7 @@ public class ImageCacheManager
         }
         Console.WriteLine($"{funcMessage}结束：{DateTime.Now}");
         return false;
+
     }
 
     private async Task SyncCache(HashSet<string> newImageUrls)
@@ -300,8 +292,8 @@ public class ImageCacheManager
         {
             if (!newImageUrls.Contains(url))
             {
-                try 
-                { 
+                try
+                {
                     var filePath = ImageCache[url].FilePath;
                     if (File.Exists(filePath))
                     {
@@ -674,15 +666,15 @@ public class ImageCacheManager
 
     public void DeleteCacheDirectory()
     {
-        try 
-        { 
+        try
+        {
             if (Directory.Exists(cacheDirectory))
             {
                 Directory.Delete(cacheDirectory, true);
                 Console.WriteLine("缓存目录已删除。");
             }
         }
-        catch 
+        catch
         {
             return;
         }
@@ -715,7 +707,7 @@ public class ImageCacheManager
                info1.GroupId == info2.GroupId &&
                info1.AlbumId == info2.AlbumId &&
                info1.AuthorId == info2.AuthorId;
-               
+
     }
 
     private bool IsNetworkAvailable()
