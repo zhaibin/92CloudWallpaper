@@ -17,7 +17,7 @@ namespace _92CloudWallpaper
         {
             public static string NameCN = "92云壁纸";
             public static string NameEN = "92CloudWallpaper";
-            public static string CurrentVersion = "v0.4.2.0";
+            public static string CurrentVersion = "v0.4.2.1";
         }
 
         public static class Urls
@@ -49,6 +49,7 @@ namespace _92CloudWallpaper
         public static int UserId = Properties.Settings.Default.UserId; // 定义一个静态变量
         //public static int UserId = 11583031;
         public static int PageIndex = 1;
+        public const int PageSize = 20;
         public static int ImageIndex = 0;
         public static int LoginFlag = 0;
         public static string Token = Properties.Settings.Default.Token;

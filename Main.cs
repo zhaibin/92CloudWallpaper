@@ -160,7 +160,7 @@ namespace _92CloudWallpaper
                     desktopWindow.DisplayImageInfo();
                 });
             }
-            timer.Start();
+            //timer.Start();
             //await cacheManager.LoadImagesAsync();
         }
         
@@ -217,6 +217,7 @@ namespace _92CloudWallpaper
 
         public async void ShowNextImage()
         {
+            bool flag = false;
             if (cacheManager.ImageInfos.Count > 0)
             {
                 cacheManager.CurrentIndex = (cacheManager.CurrentIndex + 1) % cacheManager.ImageInfos.Count;
@@ -230,8 +231,22 @@ namespace _92CloudWallpaper
                     //await cacheManager.CacheImageSurround();
 
                 }
-
-                if (cacheManager.CurrentIndex == cacheManager.ImageInfos.Count - 1)
+                if(cacheManager.ImageInfos.Count > GlobalData.PageSize)
+                {
+                    Console.WriteLine($"CurrentIndex: {cacheManager.CurrentIndex} / ImageInfos.Count: {cacheManager.ImageInfos.Count}" );
+                    if(cacheManager.CurrentIndex % GlobalData.PageSize == GlobalData.PageSize - 1)
+                    {
+                        flag = true;
+                    }
+                }
+                else
+                {
+                    if (cacheManager.CurrentIndex == cacheManager.ImageInfos.Count - 1)
+                    {
+                        flag = true;
+                    }
+                }
+                if (flag)
                 {
                     try
                     {
@@ -242,6 +257,7 @@ namespace _92CloudWallpaper
                         Console.WriteLine($"Exception: {ex.Message}");
                     }
                 }
+               
             }
         }
 
@@ -277,8 +293,11 @@ namespace _92CloudWallpaper
         {
             Properties.Settings.Default.SelectedInterval = 0;
             Properties.Settings.Default.Save();
-            timer.Stop();
+            //timer.Stop();
             menuHandler.UpdateFloatWindowButtons(false);
+            menuHandler.PauseWallpaperChange();
+
+
         }
 
         public void ResumeWallpaperChange()
@@ -289,8 +308,9 @@ namespace _92CloudWallpaper
                 Properties.Settings.Default.SelectedInterval = savedInterval;
                 Properties.Settings.Default.Save();
             }
-            timer.Start();
+            //timer.Start();
             menuHandler.UpdateFloatWindowButtons(true);
+            menuHandler.ResumeWallpaperChange();
         }
 
         private void InitializeTimer(int interval)

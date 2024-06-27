@@ -11,7 +11,7 @@ namespace _92CloudWallpaper
     public class SoftwareUpdater
     {
         private readonly Main mainForm;
-        private readonly string githubReleasesUrl = "https://api.github.com/repos/zhaibin/92CloudWallpaper/releases/latest";
+        //private readonly string githubReleasesUrl = "https://api.github.com/repos/zhaibin/92CloudWallpaper/releases/latest";
         private readonly string aliyunSoftwareVersion = "https://hk-content.oss-cn-hangzhou.aliyuncs.com/92CloudWallpaperVersion/version.txt";
         private const string flagServer = "aliyun";
         private Timer versionCheckTimer;
@@ -59,7 +59,7 @@ namespace _92CloudWallpaper
                 }
                 else 
                 {
-                    versionUrl = githubReleasesUrl;
+                    //versionUrl = githubReleasesUrl;
                 }
                 var response = await client.DownloadStringTaskAsync(versionUrl);
                 using (JsonDocument doc = JsonDocument.Parse(response))

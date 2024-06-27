@@ -57,7 +57,7 @@ public class ImageCacheManager
         }
     }
 
-    public async Task LoadImagesAsync(bool allPage = true, int pageSizeNew = 20)
+    public async Task LoadImagesAsync(bool allPage = true, int pageSizeNew = GlobalData.PageSize)
     {
         var funcMessage = "全量同步数据";
         Console.WriteLine($"{funcMessage}开始：{DateTime.Now}");

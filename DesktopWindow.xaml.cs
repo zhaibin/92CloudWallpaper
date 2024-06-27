@@ -13,7 +13,7 @@ namespace _92CloudWallpaper
     {
         public Main MainForm { get; set; }
         //private readonly MenuHandler menuHandler;
-        private DispatcherTimer imageInfoUpdateTimer;
+        //private DispatcherTimer imageInfoUpdateTimer;
         private BitmapImage currentBitmap;
         public DesktopWindow(Main mainForm)
         {
@@ -81,7 +81,9 @@ namespace _92CloudWallpaper
                     //CurrentWallpaper_Label.Text = "当前壁纸";
                     //CurrentWallpaper.Text = $"第 {(MainForm.currentWallpaperIndex + 1)} 张";
                     //WallpaperCount_Label.Text = "共有壁纸";
-                    //WallpaperCount.Text = $"{(MainForm.currentWallpaperIndex + 1)} / {MainForm.wallpaperCount}";
+#if DEBUG
+                    WallpaperCount.Text = $"{(MainForm.currentWallpaperIndex + 1)} / {MainForm.wallpaperCount}";
+#endif
                 }
                 var imageInfo = MainForm.currentImageInfo; // 获取当前图片信息
                 if (imageInfo != null) 
@@ -236,6 +238,7 @@ namespace _92CloudWallpaper
 
         private void PlayButton_Click(object sender, RoutedEventArgs e)
         {
+            MainForm.ResumeWallpaperChange();
             //menuHandler.ResumeWallpaperChange();
             PauseButton.Visibility = Visibility.Visible;
             PlayButton.Visibility = Visibility.Collapsed;
