@@ -29,12 +29,11 @@ namespace _92CloudWallpaper
         private MainWebView mainWebView; // 添加对 MainWebView 的引用
         public DesktopWindow desktopWindow;
         private readonly Stats stats;
-
+        //public static String Uuid;
         public ImageCacheManager.ImageInfo currentImageInfo { get; set; } // 定义当前图片信息的成员变量
         public string currentWallpaperFilePath;
         public int currentWallpaperIndex { get; set; }
         public int wallpaperCount { get; set; }
-
         public static Main Instance { get; private set; }
 
         [DllImport("user32.dll")]
@@ -57,7 +56,8 @@ namespace _92CloudWallpaper
                 softwareUpdater = new SoftwareUpdater(this);
                 
                 InitializeTimer(savedInterval);
-                //InitializeIdleTimer();
+                var Uuid = InfoHelper.GetOrCreateUuid();
+                Console.WriteLine($"Uuid {Uuid}");
                 stats = new Stats();
                 //启动统计上报
                 Task.Run(async () => await stats.ReportAsync(null, InfoHelper.StatsBehavior.StartApplication));
@@ -82,8 +82,7 @@ namespace _92CloudWallpaper
                 
                 // 检查更新
                 Task.Run(async () => await softwareUpdater.CheckForUpdateAsync());
-                //LockScreenManager.Start("https://creators-pc-cn.levect.com/react/swiper");
-                //StartLockScreens();
+                
                 // 初始化 MainWebView 实例
                 mainWebView = MainWebView.Instance(this);
 
@@ -443,6 +442,7 @@ namespace _92CloudWallpaper
             }
             
         }
+        
 
         [StructLayout(LayoutKind.Sequential)]
         internal struct LASTINPUTINFO

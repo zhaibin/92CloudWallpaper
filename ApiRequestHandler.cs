@@ -29,7 +29,7 @@ namespace _92CloudWallpaper
             _apiKey = configuration["ApiKey"];
 
             // 获取或生成 UUID
-            _uuid = GetOrCreateUuid();
+            _uuid = InfoHelper.GetOrCreateUuid();
         }
 
         // 发送API请求的通用方法
@@ -97,7 +97,7 @@ namespace _92CloudWallpaper
         private static string GetOrCreateUuid()
         {
             var uuid = Properties.Settings.Default.Uuid;
-            if (string.IsNullOrEmpty(uuid))
+            if (string.IsNullOrEmpty(uuid) || uuid.Trim() == string.Empty)
             {
                 uuid = Guid.NewGuid().ToString();
                 Properties.Settings.Default.Uuid = uuid;

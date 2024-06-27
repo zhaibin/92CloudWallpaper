@@ -43,6 +43,18 @@ namespace _92CloudWallpaper
         {
             public static string Name = "Self";
         }
+
+        public static string GetOrCreateUuid()
+        {
+            var uuid = Properties.Settings.Default.Uuid;
+            if (string.IsNullOrEmpty(uuid) || uuid.Trim() == string.Empty)
+            {
+                uuid = Guid.NewGuid().ToString();
+                Properties.Settings.Default.Uuid = uuid;
+                Properties.Settings.Default.Save();
+            }
+            return uuid;
+        }
     }
     public static class GlobalData
     {
