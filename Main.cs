@@ -60,42 +60,53 @@ namespace _92CloudWallpaper
                 Console.WriteLine($"Uuid {Uuid}");
                 stats = new Stats();
                 //启动统计上报
-                Task.Run(async () => await stats.ReportAsync(null, InfoHelper.StatsBehavior.StartApplication));
+                //Task.Run(async () => await stats.ReportAsync(null, InfoHelper.StatsBehavior.StartApplication));
 
-                wallpaperCount = cacheManager.ImageInfos.Count;
-                if (wallpaperCount > 0)
-                {
-                    currentWallpaperIndex = cacheManager.CurrentIndex;
-                    if (currentWallpaperIndex < wallpaperCount)
-                    {
-                        currentImageInfo = cacheManager.ImageInfos[currentWallpaperIndex];
-                    }
-                    else
-                    {
-                        currentImageInfo = null;
-                    }
-                }
-                else
-                {
-                    Task.Run(() => InitializeCarouselAsync(cacheManager));
-                }
                 
-                // 检查更新
-                Task.Run(async () => await softwareUpdater.CheckForUpdateAsync());
+                
+                
                 
                 // 初始化 MainWebView 实例
-                mainWebView = MainWebView.Instance(this);
-
-
+                //mainWebView = MainWebView.Instance(this);
                 ShowMainPage(isShowMain);
-                ShowNextImage();
-                
+
+
+
+
+                this.Load += Main_Load; // 在加载事件中调用异步方法
 
             }
             catch (Exception ex)
             {
                 Logger.LogError("Error during initialization", ex);
             }
+        }
+        private async void Main_Load(object sender, EventArgs e)
+        {
+
+            wallpaperCount = cacheManager.ImageInfos.Count;
+            if (wallpaperCount > 0)
+            {
+                currentWallpaperIndex = cacheManager.CurrentIndex;
+                if (currentWallpaperIndex < wallpaperCount)
+                {
+                    currentImageInfo = cacheManager.ImageInfos[currentWallpaperIndex];
+                }
+                else
+                {
+                    currentImageInfo = null;
+                }
+            }
+            else
+            {
+                await InitializeCarouselAsync(cacheManager);
+            }
+
+            
+            ShowNextImage();
+            await softwareUpdater.CheckForUpdateAsync(false);
+
+            await stats.ReportAsync(null, InfoHelper.StatsBehavior.StartApplication);
         }
 
         public void ShowMainPage(bool isShowMain = true)
@@ -109,7 +120,7 @@ namespace _92CloudWallpaper
 
         public void ShowLoginPage()
         {
-            MainWebView mainWebView = MainWebView.Instance(this);
+            //MainWebView mainWebView = MainWebView.Instance(this);
             mainWebView.ShowPreloadedPage($"{InfoHelper.Urls.Login}");
         }
 
@@ -161,6 +172,8 @@ namespace _92CloudWallpaper
             }
             //timer.Start();
             //await cacheManager.LoadImagesAsync();
+
+            
         }
         
         private async Task UpdateImageDisplayAsync(ImageCacheManager.ImageCacheItem cacheItem)
@@ -201,7 +214,7 @@ namespace _92CloudWallpaper
 
         public async void CheckForUpdate(object sender, EventArgs e)
         {
-            await softwareUpdater.CheckForUpdateAsync(false);
+            await softwareUpdater.CheckForUpdateAsync();
         }
 
         public void UpdateVersionMenuItemText(string text)
@@ -356,7 +369,7 @@ namespace _92CloudWallpaper
 
         public void Login(object sender, EventArgs e)
         {
-            ShowLoginForm();
+            //ShowLoginForm();
         }
 
         public async void LoginSuccess()
@@ -388,12 +401,12 @@ namespace _92CloudWallpaper
                      LoginSuccess();
                  }
              }*/
-            ShowLoginPage();
+            //ShowLoginPage();
         }
 
         private void UpdateLoginMenuItem(string text, EventHandler clickEvent)
         {
-            menuHandler.UpdateLoginMenuItem(text, clickEvent);
+            //menuHandler.UpdateLoginMenuItem(text, clickEvent);
         }
 
         private void SetWallpaper(string path)

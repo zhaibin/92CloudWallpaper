@@ -13,8 +13,6 @@ namespace _92CloudWallpaper
         private readonly Main mainForm;
         private readonly NotifyIcon trayIcon;
         private readonly Timer timer;
-        //private DesktopWindow floatWindow;
-        //private Wallpaper wallpaper;
 
         private ToolStripMenuItem loginMenuItem;
         private ToolStripMenuItem autoStartMenuItem;
@@ -71,7 +69,7 @@ namespace _92CloudWallpaper
                 menuItem.Checked = i == Array.IndexOf(times, mainForm.savedInterval);
                 changeWallpaperMenu.DropDownItems.Add(menuItem);
             }
-
+/*
             if (Properties.Settings.Default.UserId == 0)
             {
                 loginMenuItem = new ToolStripMenuItem("登录", null, mainForm.Login);
@@ -82,7 +80,7 @@ namespace _92CloudWallpaper
                 loginMenuItem = new ToolStripMenuItem("登出", null, mainForm.Logout);
                 
                 
-            }
+            }*/
             //trayMenu.Items.Add(loginMenuItem);
             uiStoreMenuItem = new ToolStripMenuItem("壁纸商店", null, (sender, e) => mainForm.ShowPreloadPage(InfoHelper.Urls.Store));
             uiPostMenuItem = new ToolStripMenuItem("本地上传", null, (sender, e) => mainForm.ShowPreloadPage(InfoHelper.Urls.Post));
@@ -136,7 +134,8 @@ namespace _92CloudWallpaper
         {
             if (e.Button == MouseButtons.Left)
             {
-                mainForm.ShowNextImage();
+                //mainForm.ShowNextImage();
+                mainForm.ShowMainPage();
             }
         }
 
@@ -253,13 +252,13 @@ namespace _92CloudWallpaper
 
         
 
-        public void UpdateLoginMenuItem(string text, EventHandler clickEvent)
+       /* public void UpdateLoginMenuItem(string text, EventHandler clickEvent)
         {
             loginMenuItem.Text = text;
             loginMenuItem.Click -= mainForm.Login;
             loginMenuItem.Click -= mainForm.Logout;
             loginMenuItem.Click += clickEvent;
-        }
+        }*/
 
         public void UpdateVersionMenuItemText(string text)
         {

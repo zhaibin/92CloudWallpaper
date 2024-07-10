@@ -31,23 +31,22 @@ namespace _92CloudWallpaper
                 if (args.Length == 0 || args[0] != "/restart")
                 {
                     MessageBox.Show("应用程序已在运行中。在右下角托盘可以找到我。");
+                    //mainForm.ShowMainPage();
                     return;
                 }
             }
-            
 
             Application.ApplicationExit += new EventHandler(OnApplicationExit);
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             //Wallpaper.SetupWallpapersForAllScreens();
-            
+
             // 检查命令行参数
             //if (args.Length > 0 && args[0] == "openStore")
             //{
             //    mainForm.ShowPreloadPage(InfoHelper.Urls.Store);
             //}
-
             if (args.Length > 0 && args[0] == "/hideMainPage")
             {
                 mainForm = new Main(false);
@@ -58,6 +57,8 @@ namespace _92CloudWallpaper
                 mainForm = new Main(true);
             }
             
+
+
             Application.Run(mainForm);
             
             

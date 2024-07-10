@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace _92CloudWallpaper
 {
@@ -17,7 +13,7 @@ namespace _92CloudWallpaper
         {
             public static string NameCN = "92云壁纸";
             public static string NameEN = "92CloudWallpaper";
-            public static string CurrentVersion = "v0.4.2.2";
+            public static string CurrentVersion = "v0.4.3.0";
         }
 
         public static class Urls
@@ -59,7 +55,7 @@ namespace _92CloudWallpaper
     public static class GlobalData
     {
         public static int UserId = Properties.Settings.Default.UserId; // 定义一个静态变量
-        //public static int UserId = 11583031;
+        //public static int UserId = 11583770;
         public static int PageIndex = 1;
         public const int PageSize = 20;
         public static int ImageIndex = 0;
