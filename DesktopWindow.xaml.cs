@@ -82,17 +82,18 @@ namespace _92CloudWallpaper
                     //CurrentWallpaper.Text = $"第 {(MainForm.currentWallpaperIndex + 1)} 张";
                     //WallpaperCount_Label.Text = "共有壁纸";
 #if DEBUG
-                    WallpaperCount.Text = $"{(MainForm.currentWallpaperIndex + 1)} / {MainForm.wallpaperCount}";
+                    //WallpaperCount.Text = $"{(MainForm.currentWallpaperIndex + 1)} / {MainForm.wallpaperCount}";
 #endif
                 }
                 var imageInfo = MainForm.currentImageInfo; // 获取当前图片信息
                 if (imageInfo != null) 
                 {
-                    Console.WriteLine($"作者 {imageInfo.AuthorName} || 介绍 {imageInfo.Description}");
+                    Console.WriteLine($"作者 {imageInfo.AlbumName} || 介绍 {imageInfo.Description}");
                     // 更新界面上的标签或其他控件以显示图片信息
                     //imageInfo.ShootTime = "2020-04-05 12:20:20";
                     //imageInfo.ShootAddr = "北京 西城";
                     //imageInfo.Description = "北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城";
+                    /*
                     if (imageInfo.ShootTime != "" && imageInfo.ShootAddr != null) 
                     { 
                         DateTime shootTime;
@@ -121,21 +122,30 @@ namespace _92CloudWallpaper
                         ShootAddr_Label.Text = "";
                         ShootAddr.Text = "";
                     }
-                    //AuthorUrl.Source = new BitmapImage(new Uri(imageInfo.AuthorUrl));
-                    AuthorUrl.Source = ImageCacheManager.GetImage(imageInfo.AuthorUrl);
-                    PicContent.Text = imageInfo.Description;
-                    AuthorName.Text = imageInfo.AuthorName;
+                    */
+                    //AuthorUrl.Source = ImageCacheManager.GetImage(imageInfo.AuthorUrl);
+
+                    //AuthorName.Text = imageInfo.AuthorName;
                     //SetBackgroundImage(MainForm.currentWallpaperFilePath);
                     //PicContent.Text = currTime.ToString();
                     //Console.WriteLine($"AuthorUrl: {imageInfo.AuthorUrl}");
+                    if(imageInfo.Description != "")
+                    {
+                        PicContent.Text = imageInfo.Description;
+                    }
+                    else
+                    {
+                        PicContent.Text = $"「{imageInfo.AlbumName}」";
+                    }
+                    
                 }
                 else
                 {
-                    ShootTime.Text = "";
-                    ShootAddr.Text = "";
-                    AuthorUrl.Source = null;
+                    //ShootTime.Text = "";
+                    //ShootAddr.Text = "";
+                    //AuthorUrl.Source = null;
                     PicContent.Text = "在壁纸商店订阅壁纸或本地上传自己喜欢的壁纸，开启云壁纸";
-                    AuthorName.Text = "";
+                    //AuthorName.Text = "";
                     //Console.WriteLine($"InfoWindow 2: {time}");
                 }
             }
@@ -147,11 +157,11 @@ namespace _92CloudWallpaper
                     {
                         var imageInfo = MainForm.currentImageInfo; // 获取当前图片信息
                         // 更新界面上的标签或其他控件以显示图片信息
-                        ShootTime.Text = imageInfo.ShootTime;
-                        ShootAddr.Text = imageInfo.ShootAddr;
-                        AuthorUrl.Source = new BitmapImage(new Uri(imageInfo.AuthorUrl));
+                        //ShootTime.Text = imageInfo.ShootTime;
+                        //ShootAddr.Text = imageInfo.ShootAddr;
+                        //AuthorUrl.Source = new BitmapImage(new Uri(imageInfo.AuthorUrl));
                         PicContent.Text = imageInfo.Description;
-                        AuthorName.Text = imageInfo.AuthorName;
+                        //AuthorName.Text = imageInfo.AuthorName;
 
                         // 日志输出以调试
                         Console.WriteLine($"ShootTime: {imageInfo.ShootTime}");

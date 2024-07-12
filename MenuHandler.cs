@@ -14,7 +14,7 @@ namespace _92CloudWallpaper
         private readonly NotifyIcon trayIcon;
         private readonly Timer timer;
 
-        private ToolStripMenuItem loginMenuItem;
+        //private ToolStripMenuItem loginMenuItem;
         private ToolStripMenuItem autoStartMenuItem;
         private ToolStripMenuItem floatWindowMenuItem;
         private ToolStripMenuItem changeWallpaperMenu;

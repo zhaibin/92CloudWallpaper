@@ -12,7 +12,6 @@ using System.Net;
 using System.Windows.Media.Imaging;
 using System.Text;
 using System.Security.Cryptography;
-using System.Security.Policy;
 using System.Collections.Concurrent;
 
 public class ImageCacheManager
@@ -44,7 +43,7 @@ public class ImageCacheManager
             tempPath = Path.GetTempPath();
             cacheRootDirectory = Path.Combine(tempPath, "CloudWallpaper");
             cacheDirectory = Path.Combine(cacheRootDirectory, "U_" + GlobalData.UserId);
-            databaseFilePath = Path.Combine(cacheDirectory, "cache_v1.db");
+            databaseFilePath = Path.Combine(cacheDirectory, "cache_v2.db");
             InitializeCacheDirectory();
             InitializeDatabase();
             LoadMetadata();
@@ -181,7 +180,8 @@ public class ImageCacheManager
                     CreateTime = element.GetProperty("createtime").ToString(),
                     GroupId = element.GetProperty("groupId").GetInt32(),
                     AlbumId = element.GetProperty("albumId").GetInt32(),
-                    AuthorId = element.GetProperty("authorId").GetInt32()
+                    AuthorId = element.GetProperty("authorId").GetInt32(),
+                    AlbumName = element.GetProperty("albumName").GetString() // 解析 albumName 字段
                 };
                 imageInfos.Add(imageInfo);
             }
@@ -202,7 +202,7 @@ public class ImageCacheManager
         imageInfo.Url = imageInfo.Url.Replace("@!webp", "");
         //强制将webp改成jpg 结束
         Uri uri = new Uri(imageInfo.Url);
-        
+
         var filePath = Path.Combine(cacheDirectory, Path.GetFileNameWithoutExtension(uri.LocalPath) + Path.GetExtension(uri.LocalPath));
 
         if (updateExisting && File.Exists(filePath))
@@ -371,7 +371,8 @@ public class ImageCacheManager
                                         CreateTime TEXT,
                                         GroupId INTEGER,
                                         AlbumId INTEGER,
-                                        AuthorId INTEGER)";
+                                        AuthorId INTEGER,
+                                        AlbumName TEXT)"; // 添加 AlbumName 字段
             using (var command = new SQLiteCommand(createTableQuery, connection))
             {
                 command.ExecuteNonQuery();
@@ -412,12 +413,12 @@ public class ImageCacheManager
                 }
             }
 
-            var requiredColumns = new List<string> { "CreateTime", "GroupId", "AlbumId", "AuthorId" };
+            var requiredColumns = new List<string> { "CreateTime", "GroupId", "AlbumId", "AuthorId", "AlbumName" };
             foreach (var column in requiredColumns)
             {
                 if (!columns.Contains(column))
                 {
-                    string addColumnQuery = $"ALTER TABLE ImageCache ADD COLUMN {column} INTEGER";
+                    string addColumnQuery = $"ALTER TABLE ImageCache ADD COLUMN {column} {(column == "AlbumName" ? "TEXT" : "INTEGER")}";
                     using (var command = new SQLiteCommand(addColumnQuery, connection))
                     {
                         command.ExecuteNonQuery();
@@ -461,6 +462,7 @@ public class ImageCacheManager
                         var groupId = Convert.ToInt32(reader["GroupId"]);
                         var albumId = Convert.ToInt32(reader["AlbumId"]);
                         var authorId = Convert.ToInt32(reader["AuthorId"]);
+                        var albumName = reader["AlbumName"].ToString(); // 加载 albumName 字段
 
                         if (File.Exists(filePath))
                         {
@@ -476,7 +478,8 @@ public class ImageCacheManager
                                 CreateTime = createTime,
                                 GroupId = groupId,
                                 AlbumId = albumId,
-                                AuthorId = authorId
+                                AuthorId = authorId,
+                                AlbumName = albumName // 加载 albumName 字段
                             };
                             ImageCache[url] = new ImageCacheItem { FilePath = filePath, Info = imageInfo };
                             ImageInfos.Add(imageInfo);
@@ -517,8 +520,8 @@ public class ImageCacheManager
                 {
                     while (insertQueue.TryDequeue(out var item))
                     {
-                        string insertQuery = @"REPLACE INTO ImageCache (Url, FilePath, Description, Location, ShootTime, ShootAddr, AuthorUrl, AuthorName, CreateTime, GroupId, AlbumId, AuthorId)
-                                               VALUES (@url, @filePath, @description, @location, @shootTime, @shootAddr, @authorUrl, @authorName, @createTime, @groupId, @albumId, @authorId)";
+                        string insertQuery = @"REPLACE INTO ImageCache (Url, FilePath, Description, Location, ShootTime, ShootAddr, AuthorUrl, AuthorName, CreateTime, GroupId, AlbumId, AuthorId, AlbumName)
+                                               VALUES (@url, @filePath, @description, @location, @shootTime, @shootAddr, @authorUrl, @authorName, @createTime, @groupId, @albumId, @authorId, @albumName)";
                         using (var command = new SQLiteCommand(insertQuery, connection, transaction))
                         {
                             command.Parameters.AddWithValue("@url", item.Info.Url);
@@ -533,6 +536,7 @@ public class ImageCacheManager
                             command.Parameters.AddWithValue("@groupId", item.Info.GroupId);
                             command.Parameters.AddWithValue("@albumId", item.Info.AlbumId);
                             command.Parameters.AddWithValue("@authorId", item.Info.AuthorId);
+                            command.Parameters.AddWithValue("@albumName", item.Info.AlbumName); // 保存 albumName 字段
                             command.ExecuteNonQuery();
                         }
                     }
@@ -570,8 +574,8 @@ public class ImageCacheManager
         using (var connection = new SQLiteConnection($"Data Source={databaseFilePath};Version=3;"))
         {
             connection.Open();
-            string insertQuery = @"REPLACE INTO ImageCache (Url, FilePath, Description, Location, ShootTime, ShootAddr, AuthorUrl, AuthorName, CreateTime, GroupId, AlbumId, AuthorId)
-                                   VALUES (@url, @filePath, @description, @location, @shootTime, @shootAddr, @authorUrl, @authorName, @createTime, @groupId, @albumId, @authorId)";
+            string insertQuery = @"REPLACE INTO ImageCache (Url, FilePath, Description, Location, ShootTime, ShootAddr, AuthorUrl, AuthorName, CreateTime, GroupId, AlbumId, AuthorId, AlbumName)
+                                   VALUES (@url, @filePath, @description, @location, @shootTime, @shootAddr, @authorUrl, @authorName, @createTime, @groupId, @albumId, @authorId, @albumName)";
             using (var command = new SQLiteCommand(insertQuery, connection))
             {
                 command.Parameters.AddWithValue("@url", url);
@@ -586,6 +590,7 @@ public class ImageCacheManager
                 command.Parameters.AddWithValue("@groupId", groupId);
                 command.Parameters.AddWithValue("@albumId", albumId);
                 command.Parameters.AddWithValue("@authorId", authorId);
+                command.Parameters.AddWithValue("@albumName", albumId);
                 command.ExecuteNonQuery();
             }
         }
@@ -706,7 +711,8 @@ public class ImageCacheManager
                info1.CreateTime == info2.CreateTime &&
                info1.GroupId == info2.GroupId &&
                info1.AlbumId == info2.AlbumId &&
-               info1.AuthorId == info2.AuthorId;
+               info1.AuthorId == info2.AuthorId &&
+               info1.AlbumName == info2.AlbumName; // 比较 albumName 字段
 
     }
 
@@ -852,6 +858,7 @@ public class ImageCacheManager
         public int GroupId { get; set; }
         public int AlbumId { get; set; }
         public int AuthorId { get; set; }
+        public string AlbumName { get; set; } // 新增字段
     }
 
     public class ImageCacheItem

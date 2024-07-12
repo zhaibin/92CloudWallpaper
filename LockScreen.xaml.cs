@@ -151,7 +151,7 @@ namespace _92CloudWallpaper
             Console.WriteLine("Close button clicked");
             CloseAllWallpapers();
             Main.lockScreenInitialized = false; // 重置空闲计时器标志
-            mainInstance.idleTimer.Start();
+            //mainInstance.idleTimer.Start();
             //mainInstance.InitializeIdleTimer(mainInstance.idleThreshold); // 重新启动IdleTimer
         }
 
@@ -170,7 +170,7 @@ namespace _92CloudWallpaper
         public static void InitializeAllWallpapers(string url, Main main)
         {
             IntPtr workerw = IntPtr.Zero;
-            main.idleTimer.Stop();
+            //main.idleTimer.Stop();
             foreach (var screen in System.Windows.Forms.Screen.AllScreens)
             {
                 var wallpaperWindow = new LockScreen(main);

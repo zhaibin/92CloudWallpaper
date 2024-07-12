@@ -16,6 +16,7 @@ namespace _92CloudWallpaper
         private Timer versionCheckTimer;
         private string downloadUrl = "";
         private const int MaxRetries = 3;
+        private static Form currentMessageBox;
 
         public SoftwareUpdater(Main mainForm)
         {
@@ -40,7 +41,7 @@ namespace _92CloudWallpaper
                 Console.WriteLine("No network connection available. 软件更新不可用。");
                 if (notifyMessageBox)
                 {
-                    MessageBox.Show("更新服务不可用，请检查网络并稍后再试。", "更新提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    ShowMessageBox("更新服务不可用，请检查网络并稍后再试。", "更新提示", MessageBoxIcon.Information);
                 }
                 return;
             }
@@ -75,7 +76,7 @@ namespace _92CloudWallpaper
                 Console.WriteLine($"Error checking for update: {ex.Message}");
                 if (notifyMessageBox)
                 {
-                    MessageBox.Show("检查更新时发生错误，请稍后再试。", "更新提示", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ShowMessageBox("检查更新时发生错误，请稍后再试。", "更新提示", MessageBoxIcon.Error);
                 }
             }
         }
@@ -84,7 +85,7 @@ namespace _92CloudWallpaper
         {
             if (notifyMessageBox)
             {
-                var result = MessageBox.Show("发现新版本，是否立即更新？", "更新提示", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                var result = ShowMessageBox("发现新版本，是否立即更新？", "更新提示", MessageBoxIcon.Information, MessageBoxButtons.YesNo);
                 if (result == DialogResult.Yes)
                 {
                     DownloadLatestVersion(notifyMessageBox);
@@ -98,7 +99,7 @@ namespace _92CloudWallpaper
 
         private void ShowNoUpdateDialog()
         {
-            MessageBox.Show("未发现新版本。", "更新提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ShowMessageBox("未发现新版本。", "更新提示", MessageBoxIcon.Information);
         }
 
         private async void DownloadLatestVersion(bool notifyMessageBox = true)
@@ -115,13 +116,13 @@ namespace _92CloudWallpaper
                     success = await TryDownloadFileAsync(downloadUrl, installerPath, attempt, notifyMessageBox);
                     if (!success && notifyMessageBox)
                     {
-                        MessageBox.Show($"下载失败，正在尝试重试（{attempt}/{MaxRetries}）。", "下载错误", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        ShowMessageBox($"下载失败，正在尝试重试（{attempt}/{MaxRetries}）。", "下载错误", MessageBoxIcon.Warning);
                     }
                 }
 
                 if (success)
                 {
-                    var result = MessageBox.Show("新版本已准备好，即将安装。", $"{InfoHelper.SoftwareInfo.NameCN}", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                    var result = ShowMessageBox("新版本已准备好，即将安装。", $"{InfoHelper.SoftwareInfo.NameCN}", MessageBoxIcon.Information, MessageBoxButtons.YesNo);
                     if (result == DialogResult.Yes)
                     {
                         System.Diagnostics.Process.Start(installerPath);
@@ -129,12 +130,12 @@ namespace _92CloudWallpaper
                 }
                 else if (notifyMessageBox)
                 {
-                    MessageBox.Show("多次重试后下载失败，请稍后再试。", "下载错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    ShowMessageBox("多次重试后下载失败，请稍后再试。", "下载错误", MessageBoxIcon.Error);
                 }
             }
             else if (notifyMessageBox)
             {
-                MessageBox.Show("下载文件出现异常。", "下载错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ShowMessageBox("下载文件出现异常。", "下载错误", MessageBoxIcon.Error);
             }
         }
 
@@ -202,6 +203,32 @@ namespace _92CloudWallpaper
                 return false;
             }
         }
+
+        private DialogResult ShowMessageBox(string text, string caption, MessageBoxIcon icon, MessageBoxButtons buttons = MessageBoxButtons.OK)
+        {
+            if (currentMessageBox != null)
+            {
+                currentMessageBox.Close();
+                currentMessageBox = null;
+            }
+
+            currentMessageBox = new Form
+            {
+                TopMost = true,
+                FormBorderStyle = FormBorderStyle.None,
+                Size = new System.Drawing.Size(0, 0),
+                StartPosition = FormStartPosition.Manual,
+                Location = new System.Drawing.Point(-2000, -2000),
+            };
+            currentMessageBox.Show();
+
+            var result = MessageBox.Show(currentMessageBox, text, caption, buttons, icon);
+            if (currentMessageBox != null)
+            { 
+                currentMessageBox.Close();
+                currentMessageBox = null;
+            }
+            return result;
+        }
     }
 }
-

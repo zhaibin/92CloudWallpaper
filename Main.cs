@@ -16,7 +16,7 @@ namespace _92CloudWallpaper
     {
         private NotifyIcon trayIcon;
         private Timer timer;
-        public Timer idleTimer;
+        public Timer periodUpdateCacheTimer;
         public static bool lockScreenInitialized = false;
         public int defaultInterval = 600000;
         public int savedInterval { get; set; } = 600000; // 默认值为10分钟
@@ -50,27 +50,16 @@ namespace _92CloudWallpaper
                 idleThreshold = Properties.Settings.Default.IdleThreshold; // 从设置中读取idleThreshold
                 trayIcon = new NotifyIcon();
                 timer = new Timer();
-                idleTimer = new Timer();
+                periodUpdateCacheTimer = new Timer();
                 desktopWindow = new DesktopWindow(this);
                 menuHandler = new MenuHandler(this, trayIcon, timer); // 先初始化
                 softwareUpdater = new SoftwareUpdater(this);
                 
                 InitializeTimer(savedInterval);
                 var Uuid = InfoHelper.GetOrCreateUuid();
-                Console.WriteLine($"Uuid {Uuid}");
+                //Console.WriteLine($"Uuid {Uuid}");
                 stats = new Stats();
-                //启动统计上报
-                //Task.Run(async () => await stats.ReportAsync(null, InfoHelper.StatsBehavior.StartApplication));
-
-                
-                
-                
-                
-                // 初始化 MainWebView 实例
-                //mainWebView = MainWebView.Instance(this);
                 ShowMainPage(isShowMain);
-
-
 
 
                 this.Load += Main_Load; // 在加载事件中调用异步方法
@@ -83,6 +72,7 @@ namespace _92CloudWallpaper
         }
         private async void Main_Load(object sender, EventArgs e)
         {
+            await stats.ReportAsync(null, InfoHelper.StatsBehavior.StartApplication);
 
             wallpaperCount = cacheManager.ImageInfos.Count;
             if (wallpaperCount > 0)
@@ -101,12 +91,11 @@ namespace _92CloudWallpaper
             {
                 await InitializeCarouselAsync(cacheManager);
             }
-
-            
             ShowNextImage();
+
             await softwareUpdater.CheckForUpdateAsync(false);
 
-            await stats.ReportAsync(null, InfoHelper.StatsBehavior.StartApplication);
+            PeriodUpdateCache();
         }
 
         public void ShowMainPage(bool isShowMain = true)
@@ -117,19 +106,11 @@ namespace _92CloudWallpaper
             }
         }
 
-
-        public void ShowLoginPage()
-        {
-            //MainWebView mainWebView = MainWebView.Instance(this);
-            mainWebView.ShowPreloadedPage($"{InfoHelper.Urls.Login}");
-        }
-
-
         public void ShowPreloadPage(string url)
         {
             
             // 显示预加载的其他页面
-            MainWebView mainWebView = MainWebView.Instance(this);
+            mainWebView = MainWebView.Instance(this);
             mainWebView.ShowPreloadedPage(url);
         }
 
@@ -334,6 +315,23 @@ namespace _92CloudWallpaper
                 timer.Start();
             }
         }
+
+        private async void PeriodUpdateCache()
+        {
+            periodUpdateCacheTimer.Interval = 60*60*1000;
+            periodUpdateCacheTimer.Tick += (sender, e) =>
+            {
+                Task.Run(async () =>
+                {
+                    Console.WriteLine($"定时更新 {DateTime.Now}");
+                    await cacheManager.LoadImagesAsync();
+                }).ConfigureAwait(false);
+            };
+            await Task.Delay(periodUpdateCacheTimer.Interval);
+            periodUpdateCacheTimer.Start();
+        }
+
+
 
         public void Logout(object sender, EventArgs e)
         {
