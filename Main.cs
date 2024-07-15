@@ -388,24 +388,21 @@ namespace _92CloudWallpaper
             }
 
         }
-
-        private void ShowLoginForm()
+        public void HandleCommand(string command)
         {
-            /* 
-             using (LoginForm loginForm = new LoginForm())
-             {
-                 if (loginForm.ShowDialog() == DialogResult.OK)
-                 {
-                     LoginSuccess();
-                 }
-             }*/
-            //ShowLoginPage();
+            if (command == "ShowPreloadPage")
+            {
+                if (this.InvokeRequired)
+                {
+                    this.Invoke(new Action(() => ShowPreloadPage(InfoHelper.Urls.Store)));
+                }
+                else
+                {
+                    ShowPreloadPage(InfoHelper.Urls.Store);
+                }
+            }
         }
 
-        private void UpdateLoginMenuItem(string text, EventHandler clickEvent)
-        {
-            //menuHandler.UpdateLoginMenuItem(text, clickEvent);
-        }
 
         private void SetWallpaper(string path)
         {

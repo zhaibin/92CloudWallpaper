@@ -311,7 +311,7 @@ namespace _92CloudWallpaper
 
         private void ClearCache(object sender, EventArgs e)
         {
-            var result = MessageBox.Show("确定要清理缓存吗？\n清理完成后软件会重新启动。", "确认清理缓存", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            var result = MessageBox.Show("确定要清理缓存吗？\n清理完成后软件需要手动启动软件。", "确认清理缓存", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (result == DialogResult.Yes)
             {
                 ImageCacheManager cacheManager = new ImageCacheManager();

@@ -30,7 +30,7 @@ namespace _92CloudWallpaper
             {
                 Interval = 86400000 // 每24小时检查一次
             };
-            versionCheckTimer.Tick += async (sender, e) => await CheckForUpdateAsync();
+            versionCheckTimer.Tick += async (sender, e) => await CheckForUpdateAsync(false);
             versionCheckTimer.Start();
         }
 
