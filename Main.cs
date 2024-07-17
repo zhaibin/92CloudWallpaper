@@ -181,7 +181,7 @@ namespace _92CloudWallpaper
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to load image from {cacheItem.FilePath}. Exception: {ex.Message}");
+                Logger.LogError($"Failed to load image from {cacheItem.FilePath}",ex);
             }
         }
 
@@ -406,11 +406,31 @@ namespace _92CloudWallpaper
 
         private void SetWallpaper(string path)
         {
+            if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
+            {
+                Console.WriteLine($"Invalid path or file does not exist: {path}");
+                return;
+            }
+
             const int SPI_SETDESKWALLPAPER = 20;
             const int SPIF_UPDATEINIFILE = 0x01;
             const int SPIF_SENDWININICHANGE = 0x02;
-            SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, path, SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE);
+
+            try
+            {
+                int result = SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, path, SPIF_UPDATEINIFILE | SPIF_SENDWININICHANGE);
+                if (result == 0)
+                {
+                    Console.WriteLine("Failed to set wallpaper.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Exception while setting wallpaper",ex);
+            }
         }
+
+
 
         protected override void OnLoad(EventArgs e)
         {

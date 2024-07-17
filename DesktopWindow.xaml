@@ -2,9 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:svgc="http://sharpvectors.codeplex.com/svgc/"
-        Title="桌面窗口" Height="100" Width="290"
-        WindowStyle="None" AllowsTransparency="True" ResizeMode="NoResize" Background="Transparent"
-      >
+        Title="桌面窗口" Height="110" Width="290"
+        WindowStyle="None" AllowsTransparency="True" ResizeMode="NoResize" Background="Transparent">
     <Window.Resources>
         <Style TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
@@ -14,7 +13,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="0">
-                            <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center" >
+                            <Viewbox HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Viewbox>
                         </Border>
@@ -41,87 +40,57 @@
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <Border Name="SpaceInfo" Grid.Row="0" Grid.Column="0" Height="50" VerticalAlignment="Top" Padding="5">
+                <Border Name="SpaceInfo" Grid.Row="0" Grid.Column="0" VerticalAlignment="Top" Padding="5">
                     <Grid>
-                        <StackPanel  Orientation="Horizontal" >
-                            <Grid  VerticalAlignment="Top" >
-                                <Grid.RowDefinitions>
-                                    <!--
-                                    <RowDefinition Height="40"/>
-                                    -->
-                                    <RowDefinition Name="ContentRow" Height="40"/>
-                                    <!--
-                                    <RowDefinition Height="18"/>
-                                    
-                                    <RowDefinition Height="18"/>
-                                    -->
-                                </Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="58" />
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="58"/>
-                                    <ColumnDefinition Width="85"/>
-                                </Grid.ColumnDefinitions>
-                                <!--
-                                <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" Orientation="Horizontal" HorizontalAlignment="Left">
-                                    
-                                    <Image x:Name="AuthorUrl" Width="30" Height="40" Margin="5">
-                                        <Image.Clip>
-                                            <RectangleGeometry RadiusX="5" RadiusY="5" Rect="0,0,30,30" />
-                                        </Image.Clip>
-                                    </Image>
-                                    <TextBlock x:Name="AuthorName" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="White" FontWeight="Bold"/>
-                                </StackPanel>
-                                -->
-                                <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" x:Name="PicContent" Text="" Foreground="White" Margin="5,5,2,0" TextWrapping="Wrap"  TextTrimming="CharacterEllipsis"/>
-                                
-                                <!--
-                                <TextBlock Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="2" Text="" x:Name="WallpaperCount" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="40"/>
+                            <RowDefinition Height="Auto"/>
+                            
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" x:Name="PicContent" Text="" Foreground="White" Margin="5,5,2,0" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"/>
 
-                                <TextBlock Grid.Row="3" Grid.Column="0"  x:Name="ShootTime_Label" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="" x:Name="ShootTime" Foreground="White" HorizontalAlignment="Left" VerticalAlignment="Center" />
-                                <TextBlock Grid.Row="2" Grid.Column="0"  x:Name="ShootAddr_Label" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Text="" x:Name="ShootAddr" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" />
-                                -->
-                            </Grid>
+                        <!-- 位置与时间 StackPanel -->
+                        <StackPanel Name="LocationPanel" Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="5,0,0,0">
+                            <svgc:SvgViewbox Name="ShootAddrIcon" Source="/Resources/white_location_icon.svg" Width="10" Height="10" Visibility="Collapsed"/>
+                            <TextBlock x:Name="ShootAddr" Foreground="White" Margin="5,0,5,0" FontSize="11"/>
+                            <svgc:SvgViewbox Name="ShootTimeIcon" Source="/Resources/white_time_icon.svg" Width="10" Height="10" Margin="5,0,0,0" Visibility="Collapsed"/>
+                            <TextBlock x:Name="ShootTime" Foreground="White" Margin="5,0,0,0" FontSize="11"/>
                         </StackPanel>
                     </Grid>
                 </Border>
-                <Border BorderBrush="White" BorderThickness="0,0,0,1" Grid.Row="0" Grid.Column="0" VerticalAlignment="Bottom" Height="1" Width="270" Opacity="0.2"/>
+                <Border BorderBrush="White" BorderThickness="0,0,0,1" Grid.Row="0" VerticalAlignment="Bottom" Height="1" Width="270" Opacity="0.2"/>
                 <Border Name="ContralPanel" Grid.Row="1" Grid.Column="0">
                     <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Border Grid.Row="1" Grid.Column="0" Height="40">
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Left" Margin="5,0,0,0">
-                                <Button x:Name="HomeButton" Grid.Column="0" Width="18" Click="HomeButton_Click" Margin="5">
-                                    <svgc:SvgViewbox  Source="/Resources/white_home_icon.svg" />
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Height="40" Grid.Column="0">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="5,0,0,0">
+                                <Button x:Name="HomeButton" Width="18" Click="HomeButton_Click" Margin="5">
+                                    <svgc:SvgViewbox Source="/Resources/white_home_icon.svg"/>
                                 </Button>
                             </StackPanel>
-                    </Border>
-                    <Border Grid.Row="1" Grid.Column="2" Width="100" Height="40">
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,5,0">
-                            
-                                <Button x:Name="PrevButton" Grid.Column="0" Width="18" Click="PrevButton_Click" Margin="5">
-                                    <svgc:SvgViewbox  Source="/Resources/white_prev_icon.svg" />
+                        </Border>
+                        <Border Width="100" Height="40" Grid.Column="2">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,5,0">
+                                <Button x:Name="PrevButton" Width="18" Click="PrevButton_Click" Margin="5">
+                                    <svgc:SvgViewbox Source="/Resources/white_prev_icon.svg"/>
                                 </Button>
                                 <Button x:Name="PauseButton" Width="18" Click="PauseButton_Click" Margin="5">
-                                    <svgc:SvgViewbox  Source="/Resources/white_pause_icon.svg" />
+                                    <svgc:SvgViewbox Source="/Resources/white_pause_icon.svg"/>
                                 </Button>
                                 <Button x:Name="PlayButton" Width="18" Click="PlayButton_Click" Visibility="Collapsed" Margin="5">
-                                    <svgc:SvgViewbox  Source="/Resources/white_play_icon.svg" />
+                                    <svgc:SvgViewbox Source="/Resources/white_play_icon.svg"/>
                                 </Button>
-                                <Button x:Name="NextButton" Grid.Column="2" Width="18" Height="20" Click="NextButton_Click" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5,0,5,0">
-                                    <svgc:SvgViewbox  Source="/Resources/white_next_icon.svg" />
-                            </Button>
-                        </StackPanel>
-                    </Border>
-                        <Border Grid.Row="1" Grid.Column="1" Width="30" Height="30" HorizontalAlignment="Center">
-                            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                
+                                <Button x:Name="NextButton" Width="18" Height="20" Click="NextButton_Click" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5,0,5,0">
+                                    <svgc:SvgViewbox Source="/Resources/white_next_icon.svg"/>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                        <Border Width="30" Height="30" HorizontalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
                             </StackPanel>
                         </Border>
                     </Grid>

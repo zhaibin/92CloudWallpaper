@@ -88,12 +88,12 @@ namespace _92CloudWallpaper
                 var imageInfo = MainForm.currentImageInfo; // 获取当前图片信息
                 if (imageInfo != null) 
                 {
-                    Console.WriteLine($"作者 {imageInfo.AlbumName} || 介绍 {imageInfo.Description}");
+                    Console.WriteLine($"合辑 {imageInfo.AlbumName} || 介绍 {imageInfo.Description}");
                     // 更新界面上的标签或其他控件以显示图片信息
                     //imageInfo.ShootTime = "2020-04-05 12:20:20";
                     //imageInfo.ShootAddr = "北京 西城";
                     //imageInfo.Description = "北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城北京 西城";
-                    /*
+                    
                     if (imageInfo.ShootTime != "" && imageInfo.ShootAddr != null) 
                     { 
                         DateTime shootTime;
@@ -105,38 +105,39 @@ namespace _92CloudWallpaper
                         {
                             ShootTime.Text = imageInfo.ShootTime;
                         }
-                        ShootTime_Label.Text = "拍摄日期";
+                        ShootTimeIcon.Visibility = Visibility.Visible;
+                        ShootTime.Visibility = Visibility.Visible;
                     }
                     else
                     {
-                        ShootTime_Label.Text = "";
+                        //ShootTime_Label.Text = "";
                         ShootTime.Text = "";
+                        ShootTimeIcon.Visibility = Visibility.Collapsed;
+                        ShootTime.Visibility = Visibility.Collapsed;
                     }
                     if (imageInfo.ShootAddr != "" && imageInfo.ShootAddr != null)
                     {
-                        ShootAddr_Label.Text = "拍摄地点";
+                        ShootAddrIcon.Visibility = Visibility.Visible;
                         ShootAddr.Text = imageInfo.ShootAddr;
+                        ShootAddr.Visibility = Visibility.Visible;
                     }
                     else
                     {
-                        ShootAddr_Label.Text = "";
+                        //ShootAddr_Label.Text = "";
                         ShootAddr.Text = "";
+                        ShootAddrIcon.Visibility = Visibility.Collapsed;
+                        ShootAddr.Visibility = Visibility.Collapsed;
                     }
-                    */
+                    
                     //AuthorUrl.Source = ImageCacheManager.GetImage(imageInfo.AuthorUrl);
 
                     //AuthorName.Text = imageInfo.AuthorName;
                     //SetBackgroundImage(MainForm.currentWallpaperFilePath);
                     //PicContent.Text = currTime.ToString();
                     //Console.WriteLine($"AuthorUrl: {imageInfo.AuthorUrl}");
-                    if(imageInfo.Description != "")
-                    {
-                        PicContent.Text = imageInfo.Description;
-                    }
-                    else
-                    {
-                        PicContent.Text = $"「{imageInfo.AlbumName}」";
-                    }
+                    
+                    PicContent.Text = $"「{imageInfo.AlbumName}」{imageInfo.Description}";
+                    
                     
                 }
                 else

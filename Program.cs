@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Pipes;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -13,7 +12,7 @@ namespace _92CloudWallpaper
         private static string mutexName = "92CloudWallpaper";
         private static Mutex mutex;
         private static Main mainForm;
-        private static string pipeName = "92CloudWallpaperPipe";
+        private static string signalFileName = "92CloudWallpaper.signal";
 
         [STAThread]
         static void Main(string[] args)
@@ -23,8 +22,8 @@ namespace _92CloudWallpaper
 
             if (!createdNew)
             {
-                // 如果Mutex已经被创建，说明已有实例在运行，通过命名管道发送命令
-                SendCommand("ShowPreloadPage");
+                // 如果Mutex已经被创建，说明已有实例在运行，通过文件信号发送命令
+                SendCommand();
                 return;
             }
 
@@ -42,25 +41,15 @@ namespace _92CloudWallpaper
                 mainForm = new Main(true);
             }
 
-            // 启动管道服务器
-            StartPipeServer();
-
+            // 启动文件信号监控
+            StartSignalMonitor();
             Application.Run(mainForm);
         }
-
-        private static void SendCommand(string command)
+        private static void SendCommand()
         {
             try
             {
-                using (NamedPipeClientStream pipeClient = new NamedPipeClientStream(".", pipeName, PipeDirection.Out))
-                {
-                    pipeClient.Connect(1000); // 尝试连接到服务器
-                    using (StreamWriter writer = new StreamWriter(pipeClient))
-                    {
-                        writer.AutoFlush = true;
-                        writer.WriteLine(command);
-                    }
-                }
+                File.Create(signalFileName).Dispose(); // 创建一个空文件作为信号
             }
             catch (Exception ex)
             {
@@ -68,35 +57,30 @@ namespace _92CloudWallpaper
             }
         }
 
-        private static void StartPipeServer()
+
+        private static void StartSignalMonitor()
         {
             Task.Run(() =>
             {
                 while (true)
                 {
-                    using (NamedPipeServerStream pipeServer = new NamedPipeServerStream(pipeName, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous))
+                    if (File.Exists(signalFileName))
                     {
                         try
                         {
-                            pipeServer.WaitForConnection();
-
-                            using (StreamReader reader = new StreamReader(pipeServer))
-                            {
-                                string command = reader.ReadLine();
-                                if (command != null)
-                                {
-                                    mainForm?.HandleCommand(command);
-                                }
-                            }
+                            File.Delete(signalFileName); // 删除信号文件以重置信号
+                            mainForm?.HandleCommand("ShowPreloadPage");
                         }
-                        catch (IOException ex)
+                        catch (Exception ex)
                         {
-                            Console.WriteLine($"Pipe server error: {ex.Message}");
+                            Console.WriteLine($"Signal monitor error: {ex.Message}");
                         }
                     }
+                    Thread.Sleep(1000); // 每秒检查一次信号文件
                 }
             });
         }
+
 
         private static void OnApplicationExit(object sender, EventArgs e)
         {
