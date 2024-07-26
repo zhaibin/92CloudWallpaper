@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using System;
 using System.Diagnostics;
 using System.Reflection;
+using System.Security;
 
 
 namespace _92CloudWallpaper
@@ -209,30 +210,67 @@ namespace _92CloudWallpaper
 
         private void SetApplicationAutoStart(bool enable)
         {
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true))
+            try
             {
-                if (key == null) return;
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true))
+                {
+                    if (key == null) return;
 
-                if (enable)
-                {
-                    key.SetValue(Application.ProductName, Application.ExecutablePath + " /hideMainPage");
+                    if (enable)
+                    {
+                        key.SetValue(Application.ProductName, Application.ExecutablePath + " /hideMainPage");
+                    }
+                    else
+                    {
+                        key.DeleteValue(Application.ProductName, false);
+                    }
                 }
-                else
-                {
-                    key.DeleteValue(Application.ProductName, false);
-                }
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                // 提示用户没有权限
+                MessageBox.Show("无法访问注册表，缺少权限。请以管理员身份运行该程序。" + Environment.NewLine + ex.Message, "权限错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch (SecurityException ex)
+            {
+                // 提示用户安全异常
+                MessageBox.Show("发生安全异常。请检查安全设置。" + Environment.NewLine + ex.Message, "安全错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch (Exception ex)
+            {
+                // 提示用户其他异常
+                MessageBox.Show("发生错误：" + Environment.NewLine + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         private bool IsApplicationAutoStarting()
         {
-            Console.WriteLine(Application.ProductName);
-            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false))
+            try
             {
-                //Console.WriteLine(key?.GetValue(Application.ProductName));
-                return key?.GetValue(Application.ProductName) != null;
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", false))
+                {
+                    return key?.GetValue(Application.ProductName) != null;
+                }
             }
+            catch (UnauthorizedAccessException ex)
+            {
+                // 提示用户没有权限
+                MessageBox.Show("无法访问注册表，缺少权限。请以管理员身份运行该程序。" + Environment.NewLine + ex.Message, "权限错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch (SecurityException ex)
+            {
+                // 提示用户安全异常
+                MessageBox.Show("发生安全异常。请检查安全设置。" + Environment.NewLine + ex.Message, "安全错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            catch (Exception ex)
+            {
+                // 提示用户其他异常
+                MessageBox.Show("发生错误：" + Environment.NewLine + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            return false;
         }
+
 
         private void ToggleFloatWindow(object sender, EventArgs e)
         {
